@@ -72,8 +72,7 @@ Two dependencies of the CSP were fixed so `script-src 'self'` is possible:
 Replaced the Google Fonts CDN with `@fontsource/inter` (400/500/600/700) + `@fontsource/dancing-script` (600/700), imported in `src/main.jsx`. No network request to a third party at runtime; fonts are served from the app's own origin (satisfies `font-src 'self'`).
 
 ### 3.6 Login hardening (Finding 7 — frontend part)
-- Lightweight password-strength meter on the login form (`src/utils/passwordStrength.js`, no zxcvbn dep): 4-point heuristic, flags repeated/incremental/common-prefix passwords. Advisory only.
-- Previously already present: Caps-Lock warning, validation messages, demo-mode notes.
+- Previously present: Caps-Lock warning, validation messages, demo-mode notes.
 - Backend still owns the real rules: bcrypt/argon2 hashing, minimum length + breach check, rate limiting / lockout (section 5).
 
 ### 3.7 CSV injection + bulk-import validation (Finding 8)
@@ -102,7 +101,7 @@ See section 5.
 | Command | Result |
 | --- | --- |
 | `npm run lint` | Clean (only pre-existing warnings, none from new code) |
-| `npm run test` | **50/50** pass (includes new CSV-injection, import-length-cap, and strength-meter tests) |
+| `npm run test` | **50/50** pass (includes new CSV-injection and import-length-cap tests) |
 | `npm run build` | Production build OK; fonts bundled locally |
 | `npm run audit` | 0 vulnerabilities |
 
