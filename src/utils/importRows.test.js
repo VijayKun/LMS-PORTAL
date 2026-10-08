@@ -107,4 +107,23 @@ describe('buildImportRows', () => {
   it('throws when the file has no data rows', () => {
     expect(() => buildImportRows([['Book Name', 'ISBN']], { branches })).toThrow(/no data rows/)
   })
+
+  it('marks absurdly long field values as failed', () => {
+    const rows = buildImportRows(
+      [['Book Name', 'ISBN'], ['x'.repeat(301), '9780132350884']],
+      { existingBooks: [], branches },
+    )
+    expect(rows[0].initial).toBe('too-long')
+    expect(rows[0].result).toBe('failed')
+    expect(rows[0].reason).toMatch(/exceeds 300 characters/)
+  })
+
+  it('clamps the copies count to a sane maximum', () => {
+    const rows = buildImportRows(
+      [['Book Name', 'ISBN', 'Copies'], ['Clean Code', '9780132350884', '99999999']],
+      { existingBooks: [], branches },
+    )
+    expect(rows[0].copies).toBe(9999)
+    expect(rows[0].initial).toBe('ready')
+  })
 })

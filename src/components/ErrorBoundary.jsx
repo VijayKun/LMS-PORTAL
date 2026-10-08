@@ -25,9 +25,11 @@ export default class ErrorBoundary extends Component {
           <div className="empty-icon">⚠️</div>
           <h3>This page hit a snag</h3>
           <p className="text-muted">Something went wrong while rendering. Your data is safe.</p>
-          <p className="text-xs text-muted" style={{ maxWidth: 480, wordBreak: 'break-word' }}>
-            {String(this.state.error?.message || this.state.error)}
-          </p>
+          {import.meta.env.DEV && (
+            <p className="text-xs text-muted" style={{ maxWidth: 480, wordBreak: 'break-word' }}>
+              {String(this.state.error?.message || this.state.error)}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <button className="btn btn-primary" onClick={() => window.location.reload()}>
               Reload app

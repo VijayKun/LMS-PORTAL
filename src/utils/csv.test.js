@@ -61,4 +61,18 @@ describe('toCsv', () => {
     const rows = [['Clean Code', 'Robert C. Martin'], ['Dune, Part One', 'Frank "Herbert"']]
     expect(parseCsv(toCsv(headers, rows))).toEqual([headers, ...rows])
   })
+
+  it('neutralises formula injection in exported cells', () => {
+    expect(toCsv(['note'], [['=1+2']])).toBe('note\r\n\'=1+2')
+    expect(toCsv(['note'], [['+cmd|calc']])).toBe('note\r\n\'+cmd|calc')
+    expect(toCsv(['note'], [['@SUM(A1)']])).toBe('note\r\n\'@SUM(A1)')
+    expect(toCsv(['note'], [['-2+3+cmd']])).toBe('note\r\n\'-2+3+cmd')
+    expect(toCsv(['note'], [['\tcmd']])).toBe('note\r\n\'\tcmd')
+  })
+
+  it('keeps negative numbers and plain text untouched', () => {
+    expect(toCsv(['value'], [[-5]])).toBe('value\r\n-5')
+    expect(toCsv(['value'], [[-1.5]])).toBe('value\r\n-1.5')
+    expect(toCsv(['value'], [['Clean Code']])).toBe('value\r\nClean Code')
+  })
 })

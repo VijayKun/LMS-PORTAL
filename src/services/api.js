@@ -14,6 +14,7 @@
  * ============================================================
  */
 import { mockBooks, mockStudents } from '../data/index.js'
+import { loginRequestSchema, importRowsSchema, parseWith } from '../validation/schemas.js'
 
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -27,8 +28,11 @@ export async function simulatedLatency(ms) {
  * Works with any email / student ID + password; the chosen role decides
  * which dashboard the user lands on. If the identifier matches a known
  * student, that student's record is used (otherwise the demo student).
+ * The payload is validated with zod first - when this becomes a real
+ * fetch(), keep the parse in front of the request.
  */
-export async function loginRequest({ email, role }) {
+export async function loginRequest(payload) {
+  const { email, role } = parseWith(loginRequestSchema, payload)
   await delay()
   if (role === 'admin') {
     return {
@@ -101,8 +105,12 @@ export async function lookupBookByISBN(isbn) {
   return { isbn, found: false }
 }
 
-/** MOCK: would become POST /api/books/import */
-export async function importBooksRequest() {
+/**
+ * MOCK: would become POST /api/books/import
+ * @param {Array} rows validated import candidates (see importRowSchema)
+ */
+export async function importBooksRequest(rows = []) {
+  parseWith(importRowsSchema, rows)
   await delay(600)
   return { success: true }
 }

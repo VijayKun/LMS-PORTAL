@@ -4,6 +4,7 @@ import { Eye, EyeOff, AlertCircle, Loader2, BookOpen, Search, ArrowLeftRight, Bo
 import { useAuth } from '../store/AuthContext.jsx'
 import { useTheme } from '../store/ThemeContext.jsx'
 import { useToast } from '../store/ToastContext.jsx'
+import { passwordStrength } from '../utils/passwordStrength.js'
 import { Field, Input } from '../components/ui/Field.jsx'
 import BrandLogo from '../components/BrandLogo.jsx'
 
@@ -44,6 +45,8 @@ export default function LoginPage() {
   const [capsOn, setCapsOn] = useState(false)
   const [remember, setRemember] = useState(true)
   const [featuresOpen, setFeaturesOpen] = useState(false)
+
+  const strength = passwordStrength(password)
 
   if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/student'} replace />
 
@@ -227,6 +230,14 @@ export default function LoginPage() {
                     <AlertCircle size={12} /> Caps Lock is on
                   </p>
                 )}
+                <div className="pw-strength" data-tone={strength.tone} aria-live="polite">
+                  <span className="pw-strength-bars" aria-hidden="true">
+                    {[1, 2, 3].map((n) => (
+                      <span key={n} className={strength.score >= n ? 'on' : ''} />
+                    ))}
+                  </span>
+                  <span className="pw-strength-label">Strength: {strength.label}</span>
+                </div>
               </Field>
 
               <div className="login-row">

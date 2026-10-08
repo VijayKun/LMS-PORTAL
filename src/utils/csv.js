@@ -50,9 +50,19 @@ export function parseCsv(text) {
   return rows.filter((r) => r.some((cell) => cell.trim() !== ''))
 }
 
-/** Escapes a single CSV field. */
+/**
+ * Escapes a single CSV field.
+ * Cells that spreadsheet apps would treat as formulas (=, +, -, @, tab, CR
+ * at the start) are prefixed with an apostrophe so exported reports can
+ * never trigger CSV/formula injection. Cells that parse as plain numbers
+ * (e.g. -5) are left untouched so negative values stay numeric.
+ */
+const FORMULA_START = /^[=+@\t\r-]/
+
 function escapeCell(value) {
-  const s = String(value ?? '')
+  let s = String(value ?? '')
+  const isNumber = s.trim() !== '' && Number.isFinite(Number(s))
+  if (!isNumber && FORMULA_START.test(s)) s = `'${s}`
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 

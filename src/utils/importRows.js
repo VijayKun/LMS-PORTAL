@@ -18,6 +18,10 @@ const HEADER_ALIASES = {
   publisher: ['publisher', 'press'],
 }
 
+/** Length caps so a hostile spreadsheet can't inject absurd cell values. */
+const MAX_FIELD_LENGTHS = { title: 300, author: 200, category: 100, publisher: 200 }
+const MAX_COPIES = 9999
+
 /** Maps a header row to column indexes: { title: 0, isbn: 1, ... } */
 export function mapHeaders(headerRow) {
   const map = {}
@@ -81,7 +85,10 @@ export function buildImportRows(table, { existingBooks = [], branches = [] } = {
     const title = get('title')
     const isbn = get('isbn')
     const isbnKey = isbn.replace(/[-\s]/g, '').toLowerCase()
-    const copies = Math.max(1, parseInt(get('copies'), 10) || 1)
+    const author = get('author')
+    const category = get('category')
+    const publisher = get('publisher')
+    const copies = Math.min(MAX_COPIES, Math.max(1, parseInt(get('copies'), 10) || 1))
     const branchLabel = get('branch')
     const branch =
       branches.find(
@@ -90,8 +97,13 @@ export function buildImportRows(table, { existingBooks = [], branches = [] } = {
           (branchLabel && b.id === branchLabel),
       ) || branches[0]
 
+    const oversized = Object.entries(MAX_FIELD_LENGTHS).find(
+      ([field, max]) => String({ title, author, category, publisher }[field]).length > max,
+    )
+
     let status = 'ready'
     if (!title) status = 'missing-title'
+    else if (oversized) status = 'too-long'
     else if (!isValidIsbn(isbn)) status = 'bad-isbn'
     else if (seen.has(isbnKey) || existing.has(isbnKey)) status = 'duplicate'
     if (isbnKey) seen.add(isbnKey)
@@ -99,19 +111,21 @@ export function buildImportRows(table, { existingBooks = [], branches = [] } = {
     const reason =
       status === 'missing-title'
         ? 'Book name is empty'
-        : status === 'bad-isbn'
-          ? 'Invalid ISBN format or checksum'
-          : status === 'duplicate'
-            ? 'ISBN already in the catalog or repeated in the file'
-            : null
+        : status === 'too-long'
+          ? `Field "${oversized[0]}" exceeds ${oversized[1]} characters`
+          : status === 'bad-isbn'
+            ? 'Invalid ISBN format or checksum'
+            : status === 'duplicate'
+              ? 'ISBN already in the catalog or repeated in the file'
+              : null
 
     return {
       key: index,
       title: title || '(empty title)',
       isbn: isbn || '—',
-      author: get('author') || 'Unknown',
-      category: get('category') || 'General',
-      publisher: get('publisher') || '—',
+      author: author || 'Unknown',
+      category: category || 'General',
+      publisher: publisher || '—',
       copies,
       branchId: branch?.id ?? null,
       branchLabel: branch?.name ?? 'Unmatched',

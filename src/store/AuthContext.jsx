@@ -29,12 +29,29 @@ export const EMAIL_DOMAINS = {
 
 const VALID_ROLES = ['student', 'admin']
 
+/**
+ * Only these fields may be changed by the client after sign-in.
+ * `role`, `id` etc. must come from the backend only - a forged session
+ * can never escalate privileges through updateUser().
+ */
+const UPDATABLE_FIELDS = ['name', 'email', 'contact', 'avatar']
+
+function isValidSession(parsed) {
+  return Boolean(
+    parsed &&
+      typeof parsed === 'object' &&
+      typeof parsed.id === 'string' &&
+      typeof parsed.name === 'string' &&
+      VALID_ROLES.includes(parsed.role),
+  )
+}
+
 function readSavedUser() {
   try {
     const session = sessionStorage.getItem(STORAGE_KEY)
     if (session) {
       const parsed = JSON.parse(session)
-      if (parsed && VALID_ROLES.includes(parsed.role)) return parsed
+      if (isValidSession(parsed)) return parsed
       sessionStorage.removeItem(STORAGE_KEY)
       return null
     }
@@ -43,7 +60,7 @@ function readSavedUser() {
       const parsed = JSON.parse(legacy)
       localStorage.removeItem(STORAGE_KEY)
       localStorage.setItem(LEGACY_STORAGE_KEY, legacy)
-      if (parsed && VALID_ROLES.includes(parsed.role)) return parsed
+      if (isValidSession(parsed)) return parsed
     }
   } catch {
     /* corrupted storage - just start signed out */
@@ -123,11 +140,26 @@ export function AuthProvider({ children }) {
 
   function logout() {
     setUser(null)
+    try {
+      sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
+      // Remove the legacy localStorage session so it can never be revived.
+      localStorage.removeItem(LEGACY_STORAGE_KEY)
+    } catch {
+      /* storage unavailable - in-memory state is already cleared */
+    }
   }
 
-  /** Used by the profile page / settings page. */
+  /** Used by the profile page / settings page. Whitelisted - never role/id. */
   function updateUser(patch) {
-    setUser((current) => (current ? { ...current, ...patch } : current))
+    setUser((current) => {
+      if (!current) return current
+      const safe = {}
+      for (const key of UPDATABLE_FIELDS) {
+        if (key in patch) safe[key] = patch[key]
+      }
+      return { ...current, ...safe }
+    })
   }
 
   return (

@@ -106,8 +106,9 @@ export default function BulkImport() {
         setTimeout(async () => {
           setStep(index)
           if (index === durations.length - 1) {
-            await importBooksRequest()
             const ready = rows.filter((r) => r.initial === 'ready')
+            // Validated again with zod at the API boundary before the "request".
+            await importBooksRequest(ready)
             ready.forEach((r, i) =>
               addBook({
                 title: r.title,
