@@ -210,7 +210,8 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="card-body flush">
-          <div className="table-responsive">
+          {/* Desktop: full transaction table */}
+          <div className="table-responsive hide-mobile">
             <table className="table">
               <thead>
                 <tr>
@@ -259,6 +260,45 @@ export default function AdminDashboard() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Phones: one compact card per transaction (student block + book + action · date + status) */}
+          <div className="mtx-list only-mobile">
+            {recent.map((tx) => {
+              const student = getStudent(state, tx.studentId)
+              const book = getBook(state, tx.bookId)
+              const returned = tx.status === 'returned'
+              const statusKey = returned ? 'returned' : effectiveStatus(tx) === 'overdue' ? 'overdue' : 'issued'
+              const actionLabel = returned ? 'Returned' : 'Issued'
+              const statusLabel = returned ? 'Completed' : effectiveStatus(tx) === 'overdue' ? 'Overdue' : 'Active'
+              return (
+                <div className="mtx-card" key={tx.id}>
+                  <div className="mtx-top">
+                    <span className="avatar avatar-sm">{getInitials(student?.name || '')}</span>
+                    <div className="mtx-student">
+                      <div className="mtx-student-name">{student?.name || '—'}</div>
+                      <div className="mtx-student-id">{student?.studentId}</div>
+                    </div>
+                    <Badge tone={returned ? 'success' : 'info'}>{actionLabel}</Badge>
+                  </div>
+                  <div className="mtx-book">
+                    <div className="mtx-cover">
+                      <BookCover book={book} size="sm" />
+                    </div>
+                    <div className="mtx-book-body">
+                      <div className="mtx-book-title">{book?.title || '—'}</div>
+                      <div className="mtx-book-meta">
+                        {actionLabel} · {formatDate(tx.returnDate || tx.issueDate)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mtx-status">
+                    <span className={`mtx-status-dot ${statusKey}`} aria-hidden="true" />
+                    <span className={`mtx-status-text ${statusKey}`}>{statusLabel}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>

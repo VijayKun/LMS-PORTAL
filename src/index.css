@@ -1035,6 +1035,63 @@ img { max-width: 100%; }
 .loan-card .icon-btn { flex-shrink: 0; }
 .due-soon-note { font-size: 11.5px; font-weight: 650; color: var(--warning); margin-top: 3px; }
 
+/* Compact transaction cards (phones) — admin Recent Transactions.
+   Detached from the desktop table: hidden on >=768px via .only-mobile. */
+.mtx-list { flex-direction: column; }
+.mtx-card { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.mtx-card:last-child { border-bottom: none; }
+
+.mtx-top { display: flex; align-items: center; gap: 11px; }
+.mtx-top .mtx-student { flex: 1; min-width: 0; }
+.mtx-top .badge { flex-shrink: 0; }
+.mtx-student-name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.mtx-student-id {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mtx-book { display: flex; align-items: center; gap: 12px; margin-top: 12px; min-width: 0; }
+.mtx-cover { width: 52px; height: 74px; flex-shrink: 0; border-radius: 6px; }
+.mtx-cover .book-cover { width: 100%; height: 100%; }
+.mtx-book-body { flex: 1; min-width: 0; }
+.mtx-book-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.mtx-book-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.mtx-status { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; }
+.mtx-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mtx-status-text { font-size: 11.5px; font-weight: 650; letter-spacing: 0.01em; }
+.mtx-status-dot.issued { background: var(--info); }
+.mtx-status-text.issued { color: var(--info); }
+.mtx-status-dot.overdue { background: var(--danger); }
+.mtx-status-text.overdue { color: var(--danger); }
+.mtx-status-dot.returned { background: var(--success); }
+.mtx-status-text.returned { color: var(--success); }
+
 /* ---------------- Upload / import ---------------- */
 
 .dropzone {
@@ -2316,6 +2373,36 @@ color: #f5f7fb;
 }
 .drag-grip:hover { background: var(--hover); color: var(--text-muted); }
 .drag-grip:active { cursor: grabbing; }
+
+/* ---- Admin panel mobile refinements ---- */
+
+/* Compact card headers (Recent Transactions etc.) on phones so the
+   count badge + "View all" sit beside the title instead of crowding it. */
+@media (max-width: 768px) {
+  .card-header { gap: 10px; }
+  .card-header h3 { font-size: 15.5px; }
+  .card-header .card-actions { gap: 8px; }
+  .content { min-width: 0; }
+}
+
+/* Scroll-to-top: smaller, tucked into the corner, on top of nothing. */
+@media (max-width: 768px) {
+  .back-to-top { width: 36px; height: 36px; right: 14px; bottom: 14px; }
+}
+@media (max-width: 480px) {
+  .back-to-top { width: 32px; height: 32px; right: 12px; bottom: 12px; }
+  .back-to-top svg { width: 15px; height: 15px; }
+}
+
+/* Admin mobile header: only the essential controls, never overflowing.
+   The name/role label and search pill are already hidden on phones. */
+@media (max-width: 480px) {
+  .topbar { padding: 8px 12px; gap: 8px; }
+  .topbar .icon-btn { width: 34px; height: 34px; }
+  .topbar .icon-btn .dot { top: 5px; right: 6px; }
+  .topbar-user { padding: 3px 6px; gap: 2px; }
+  .topbar-user .avatar { width: 32px; height: 32px; font-size: 11.5px; }
+}
 
 /* ---- Topbar sync pill ---- */
 .sync-pill {
