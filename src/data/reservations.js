@@ -1,0 +1,90 @@
+/**
+ * Reservations for books that were fully borrowed out.
+ * Shape: { id, studentId, bookId, reservationDate, queuePosition,
+ *          status, expectedAvailability, pickupDeadline }
+ * status: 'waiting' | 'ready' | 'fulfilled' | 'expired'
+ */
+export const mockReservations = [
+  {
+    id: 'rs1',
+    studentId: 'st1',
+    bookId: 'bk4',
+    reservationDate: '2026-10-02',
+    queuePosition: 2,
+    status: 'waiting',
+    expectedAvailability: '2026-10-14',
+    pickupDeadline: null,
+  },
+  {
+    id: 'rs2',
+    studentId: 'st1',
+    bookId: 'bk11',
+    reservationDate: '2026-10-05',
+    queuePosition: 1,
+    status: 'ready',
+    expectedAvailability: null,
+    pickupDeadline: '2026-10-09',
+  },
+  {
+    id: 'rs3',
+    studentId: 'st1',
+    bookId: 'bk8',
+    reservationDate: '2026-09-18',
+    queuePosition: 1,
+    status: 'expired',
+    expectedAvailability: '2026-09-22',
+    pickupDeadline: '2026-09-25',
+  },
+  {
+    id: 'rs4',
+    studentId: 'st3',
+    bookId: 'bk24',
+    reservationDate: '2026-10-04',
+    queuePosition: 1,
+    status: 'waiting',
+    expectedAvailability: '2026-10-18',
+    pickupDeadline: null,
+  },
+  {
+    id: 'rs5',
+    studentId: 'st6',
+    bookId: 'bk4',
+    reservationDate: '2026-10-06',
+    queuePosition: 3,
+    status: 'waiting',
+    expectedAvailability: '2026-10-21',
+    pickupDeadline: null,
+  },
+  {
+    id: 'rs6',
+    studentId: 'st9',
+    bookId: 'bk13',
+    reservationDate: '2026-10-01',
+    queuePosition: 1,
+    status: 'ready',
+    expectedAvailability: null,
+    pickupDeadline: '2026-10-08',
+  },
+  {
+    id: 'rs7',
+    studentId: 'st12',
+    bookId: 'bk22',
+    reservationDate: '2026-09-15',
+    queuePosition: 1,
+    status: 'fulfilled',
+    expectedAvailability: null,
+    pickupDeadline: '2026-09-20',
+  },
+  {
+    id: 'rs8',
+    studentId: 'st15',
+    bookId: 'bk19',
+    reservationDate: '2026-09-10',
+    queuePosition: 2,
+    status: 'expired',
+    expectedAvailability: '2026-09-16',
+    pickupDeadline: '2026-09-19',
+  },
+]
+
+export default mockReservations
