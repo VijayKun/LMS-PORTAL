@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Menu,
   Bell,
@@ -9,7 +9,6 @@ import {
   UserRound,
   LogOut,
   Search,
-  ArrowLeft,
   Megaphone,
 } from 'lucide-react'
 import { useAuth } from '../../store/AuthContext.jsx'
@@ -21,14 +20,8 @@ export default function Topbar({ onMenuClick, onBellClick, onAnnounceClick, unre
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
-  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
-
-  // Section index pages (dashboard) have nothing to go back to.
-  const sectionRoot = ['/', '/student', '/admin'].includes(
-    location.pathname.replace(/\/+$/, '') || '/',
-  )
 
   useEffect(() => {
     if (!menuOpen) return
@@ -46,19 +39,8 @@ export default function Topbar({ onMenuClick, onBellClick, onAnnounceClick, unre
     navigate(profilePath)
   }
 
-  function goBack() {
-    // history may be empty on a deep link — fall back to the section home
-    if (window.history.length > 1) navigate(-1)
-    else navigate(user?.role === 'admin' ? '/admin' : '/student')
-  }
-
   return (
     <header className="topbar">
-      {!sectionRoot && (
-        <button className="icon-btn back-btn" onClick={goBack} aria-label="Go back">
-          <ArrowLeft size={19} />
-        </button>
-      )}
       <button className="icon-btn menu-btn" onClick={onMenuClick} aria-label="Open navigation">
         <Menu size={19} />
       </button>
