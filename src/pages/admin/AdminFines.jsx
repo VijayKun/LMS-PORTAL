@@ -9,6 +9,7 @@ import Badge from '../../components/ui/Badge.jsx'
 import StatCard from '../../components/ui/StatCard.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
 import Modal from '../../components/ui/Modal.jsx'
+import BookCover from '../../components/books/BookCover.jsx'
 import {
   getStudent,
   getBook,
@@ -108,7 +109,8 @@ export default function AdminFines() {
           {rows.length === 0 ? (
             <EmptyState icon={IndianRupee} title="No fine records" message="No fines match the current filters." />
           ) : (
-            <div className="table-responsive">
+            <>
+              <div className="table-responsive hide-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -161,7 +163,74 @@ export default function AdminFines() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Phones: one compact card per fine record */}
+              <div className="mrec-list only-mobile">
+                {rows.map((f) => {
+                  const student = getStudent(state, f.studentId)
+                  const book = getBook(state, f.bookId)
+                  return (
+                    <div className="mrec-card" key={f.id}>
+                      <div className="mrec-top">
+                        <div className="mrec-cover">
+                          <BookCover book={book} size="sm" />
+                        </div>
+                        <div className="mrec-book">
+                          <div className="mrec-title">{book?.title}</div>
+                          <div className="mrec-meta">
+                            {student?.name} · {student?.studentId}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="info-list compact mrec-rows">
+                        <div className="info-row">
+                          <span className="info-label">Due</span>
+                          <span className="info-value">{formatDate(f.dueDate)}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Overdue</span>
+                          <span className="info-value">
+                            {f.overdueDays} day{f.overdueDays === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Fine</span>
+                          <span className="info-value text-danger font-bold">₹{f.amount}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Status</span>
+                          <span className="info-value">
+                            <Badge status={f.status === 'paid' ? 'paid' : 'pending'}>
+                              {f.status === 'paid' ? 'Paid' : f.live ? 'Accruing' : 'Pending'}
+                            </Badge>
+                          </span>
+                        </div>
+                        {f.status === 'paid' && f.paidDate && (
+                          <div className="info-row">
+                            <span className="info-label">Paid on</span>
+                            <span className="info-value">{formatDate(f.paidDate)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mrec-actions">
+                        <button className="btn btn-secondary btn-sm" onClick={() => setViewing(f)}>
+                          <Eye size={13} /> View
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => recordPayment(f)}
+                          disabled={f.status === 'paid'}
+                        >
+                          <CheckCircle2 size={13} />
+                          {f.status === 'paid' ? 'Paid' : 'Record Payment'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

@@ -87,7 +87,7 @@ export default function BorrowingHistory() {
           <SearchBar
             value={query}
             onChange={setQuery}
-            placeholder="Search by book title, author or ISBN..."
+            placeholder="Search books, authors or ISBN..."
           />
           <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
             <option value="all">All statuses</option>
@@ -112,7 +112,8 @@ export default function BorrowingHistory() {
               message="No borrowing records match the current search and filters."
             />
           ) : (
-            <div className="table-responsive">
+            <>
+              <div className="table-responsive hide-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -159,7 +160,62 @@ export default function BorrowingHistory() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Phones: one compact card per borrowing record */}
+              <div className="mrec-list only-mobile">
+                {rows.map((tx) => {
+                  const book = getBook(state, tx.bookId)
+                  const statusKey = effectiveStatus(tx)
+                  return (
+                    <div className="mrec-card" key={tx.id}>
+                      <div className="mrec-top">
+                        <div className="mrec-cover">
+                          <BookCover book={book} size="sm" />
+                        </div>
+                        <div className="mrec-book">
+                          <div className="mrec-title">{book.title}</div>
+                          <div className="mrec-meta">{branchName(state, book.branchId)}</div>
+                        </div>
+                      </div>
+                      <div className="info-list compact mrec-rows">
+                        <div className="info-row">
+                          <span className="info-label">Issued</span>
+                          <span className="info-value">{formatDate(tx.issueDate)}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Due</span>
+                          <span className="info-value">{formatDate(tx.dueDate)}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Returned</span>
+                          <span className="info-value">{tx.returnDate ? formatDate(tx.returnDate) : '—'}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Fine</span>
+                          <span className="info-value">
+                            {tx.fine > 0 ? (
+                              <span className="text-danger font-semibold">₹{tx.fine}</span>
+                            ) : (
+                              '—'
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mrec-foot">
+                        <Badge
+                          status={
+                            statusKey === 'returned' ? 'returned' : statusKey === 'overdue' ? 'overdue' : 'issued'
+                          }
+                        >
+                          {statusKey === 'returned' ? 'Returned' : statusKey === 'overdue' ? 'Overdue' : 'Issued'}
+                        </Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

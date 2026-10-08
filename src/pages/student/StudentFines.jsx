@@ -45,7 +45,7 @@ export default function StudentFines() {
         </div>
       </div>
 
-      <div className="grid grid-3 mb-4">
+      <div className="grid grid-3 mb-4 fines-stats">
         <StatCard
           icon={IndianRupee}
           tone="red"
@@ -65,7 +65,7 @@ export default function StudentFines() {
 
       {outstanding > 0 && (
         <div className="card card-pad mb-4" style={{ borderLeft: '4px solid var(--danger)' }}>
-          <div className="row-between wrap">
+          <div className="row-between wrap fine-alert">
             <div>
               <div className="font-semibold">You have ₹{outstanding} in pending fines</div>
               <div className="text-sm text-secondary mt-2">
@@ -97,7 +97,8 @@ export default function StudentFines() {
               message="You have never been charged a late fee. Keep it up!"
             />
           ) : (
-            <div className="table-responsive">
+            <>
+              <div className="table-responsive hide-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -159,7 +160,79 @@ export default function StudentFines() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Phones: one compact card per fine record */}
+              <div className="mrec-list only-mobile">
+                {records.map((f) => {
+                  const book = getBook(state, f.bookId)
+                  return (
+                    <div className="mrec-card" key={f.id}>
+                      <div className="mrec-top">
+                        <div className="mrec-cover">
+                          <BookCover book={book} size="sm" />
+                        </div>
+                        <div className="mrec-book">
+                          <div className="mrec-title">{book.title}</div>
+                          <div className="mrec-meta">{book.author}</div>
+                        </div>
+                      </div>
+                      <div className="info-list compact mrec-rows">
+                        <div className="info-row">
+                          <span className="info-label">Due</span>
+                          <span className="info-value">{formatDate(f.dueDate)}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Returned</span>
+                          <span className="info-value">{f.returnDate ? formatDate(f.returnDate) : 'Not returned'}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Overdue</span>
+                          <span className="info-value">
+                            {f.overdueDays} day{f.overdueDays === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Fine</span>
+                          <span className="info-value text-danger font-bold">₹{f.amount}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Status</span>
+                          <span className="info-value">
+                            <Badge status={f.status === 'paid' ? 'paid' : 'pending'}>
+                              {f.status === 'paid' ? 'Paid' : f.live ? 'Accruing' : 'Pending'}
+                            </Badge>
+                          </span>
+                        </div>
+                        {f.status === 'paid' && (
+                          <div className="info-row">
+                            <span className="info-label">Paid on</span>
+                            <span className="info-value">{formatDate(f.paidDate)}</span>
+                          </div>
+                        )}
+                      </div>
+                      {f.status !== 'paid' && (
+                        <div className="mrec-actions">
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() =>
+                              toast(
+                                f.live
+                                  ? 'Return the book first to settle this fine (demo).'
+                                  : 'Payable at the library counter (demo).',
+                                'info',
+                              )
+                            }
+                          >
+                            Pay Now
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

@@ -84,7 +84,8 @@ export default function StudentReservations() {
               }
             />
           ) : (
-            <div className="table-responsive">
+            <>
+              <div className="table-responsive hide-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -159,7 +160,84 @@ export default function StudentReservations() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Phones: one compact card per reservation */}
+              <div className="mrec-list only-mobile">
+                {rows.map((r) => {
+                  const book = getBook(state, r.bookId)
+                  return (
+                    <div className="mrec-card" key={r.id}>
+                      <div className="mrec-top">
+                        <div className="mrec-cover">
+                          <BookCover book={book} size="sm" />
+                        </div>
+                        <div className="mrec-book">
+                          <div className="mrec-title">{book.title}</div>
+                          <div className="mrec-meta">{branchName(state, book.branchId)}</div>
+                        </div>
+                      </div>
+                      <div className="info-list compact mrec-rows">
+                        <div className="info-row">
+                          <span className="info-label">Reserved</span>
+                          <span className="info-value">{formatDate(r.reservationDate)}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Queue</span>
+                          <span className="info-value">#{r.queuePosition}</span>
+                        </div>
+                        <div className="info-row">
+                          <span className="info-label">Status</span>
+                          <span className="info-value">
+                            <Badge
+                              status={
+                                r.status === 'ready'
+                                  ? 'ready'
+                                  : r.status === 'waiting'
+                                    ? 'waiting'
+                                    : r.status === 'fulfilled'
+                                      ? 'fulfilled'
+                                      : 'expired'
+                              }
+                            >
+                              {STATUS_LABEL[r.status]}
+                            </Badge>
+                          </span>
+                        </div>
+                        {r.status === 'ready' && (
+                          <div className="info-row">
+                            <span className="info-label">Pickup by</span>
+                            <span className="info-value">{formatDate(r.pickupDeadline)}</span>
+                          </div>
+                        )}
+                        {r.status === 'waiting' && (
+                          <div className="info-row">
+                            <span className="info-label">Expected</span>
+                            <span className="info-value">{formatDate(r.expectedAvailability)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mrec-actions">
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => navigate(`/student/books/${book.id}`)}
+                        >
+                          View
+                        </button>
+                        {(r.status === 'waiting' || r.status === 'ready') && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => setCancelling(r)}
+                          >
+                            <XCircle size={13} /> Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

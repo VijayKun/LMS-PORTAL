@@ -2404,6 +2404,89 @@ color: #f5f7fb;
   .topbar-user .avatar { width: 32px; height: 32px; font-size: 11.5px; }
 }
 
+/* ---- Student pages: compact mobile record cards ------------------------
+   Fines, Borrowing History and Reservations share one phone layout:
+   small cover + title block on top, compact label/value rows below and a
+   clear action row at the bottom. Desktop keeps its data tables
+   (.hide-mobile); these lists only render on phones (.only-mobile). */
+
+.mrec-list { flex-direction: column; }
+.mrec-card { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.mrec-card:last-child { border-bottom: none; }
+
+.mrec-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mrec-cover { width: 52px; height: 74px; flex-shrink: 0; }
+.mrec-cover .book-cover { width: 100%; height: 100%; }
+.mrec-book { flex: 1; min-width: 0; }
+.mrec-title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mrec-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.mrec-rows { margin-top: 10px; }
+.mrec-actions { display: flex; gap: 8px; margin-top: 12px; }
+.mrec-actions .btn { flex: 1; justify-content: center; }
+.mrec-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+/* Compact label/value rows (the general .info-row is too airy for phones). */
+.info-list.compact .info-row { padding: 6px 0; gap: 12px; font-size: 13px; }
+.info-list.compact .info-label { font-size: 12.5px; }
+.info-list.compact .info-value { font-size: 13px; }
+
+@media (max-width: 768px) {
+  /* Fines summary: the two money cards sit side by side, the overdue
+     count becomes a single full-width row underneath. */
+  .fines-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .fines-stats > :nth-child(3) { grid-column: 1 / -1; }
+  .fines-stats > :nth-child(3) .flex-1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+  .fines-stats > :nth-child(3) .stat-value-row { margin-top: 0; }
+  .fines-stats > :nth-child(3) .stat-value { margin-top: 0; font-size: 18px; }
+
+  /* Pending-fine banner: stacked, compact, small button under the copy. */
+  .fine-alert { flex-direction: column; align-items: stretch; gap: 12px; }
+  .fine-alert .btn { align-self: flex-start; }
+
+  /* History filters: full-width search over a clean 2-up select row. */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: stretch;
+  }
+  .filter-bar .searchbar { grid-column: 1 / -1; }
+  .filter-bar .select { width: 100%; min-width: 0; }
+}
+
+/* Very small phones: single-column summary + filters, tighter cards. */
+@media (max-width: 400px) {
+  .fines-stats { grid-template-columns: minmax(0, 1fr); }
+  .fines-stats > :nth-child(3) { grid-column: auto; }
+  .filter-bar { grid-template-columns: minmax(0, 1fr); }
+  .mrec-card { padding: 12px 14px; }
+  .mrec-cover { width: 48px; height: 68px; }
+  .mrec-actions { flex-direction: column; }
+}
+
 /* ---- Topbar sync pill ---- */
 .sync-pill {
   display: inline-flex;
