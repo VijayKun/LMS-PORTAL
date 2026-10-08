@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
-import { Eye, EyeOff, AlertCircle, Loader2, BookOpen, Search, ArrowLeftRight, Bookmark, IndianRupee, Users, Lock, Code2, Sun, Moon, ChevronDown } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Loader2, BookOpen, Search, ArrowLeftRight, Bookmark, IndianRupee, Users, Lock, Sun, Moon, ChevronDown } from 'lucide-react'
 import { useAuth } from '../store/AuthContext.jsx'
 import { useTheme } from '../store/ThemeContext.jsx'
 import { useToast } from '../store/ToastContext.jsx'
@@ -84,7 +84,7 @@ export default function LoginPage() {
             className="dev-pill"
             onClick={() => toast('Developer profile is coming soon.', 'info')}
           >
-            <Code2 size={13} /> Developer
+            <span className="dev-pill-emoji" aria-hidden="true">🧑💻</span> Dev
           </button>
           <button
             type="button"
