@@ -30,7 +30,7 @@ export const popularBooks = [
 export const activeStudents = [
   { name: 'Priya Menon', borrows: 18 },
   { name: 'Ishita Deshpande', borrows: 15 },
-  { name: 'Shivangi Verma', borrows: 14 },
+  { name: 'Vijay Verma', borrows: 14 },
   { name: 'Karthik Reddy', borrows: 12 },
   { name: 'Fahad Khan', borrows: 11 },
 ]

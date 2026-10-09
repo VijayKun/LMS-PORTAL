@@ -8,7 +8,7 @@ import { Field, Input } from '../components/ui/Field.jsx'
 import BrandLogo from '../components/BrandLogo.jsx'
 
 const DEMO = {
-  identifier: 'shivangi.verma@mitsgwl.ac.in',
+  identifier: 'vijay.verma@mitsgwl.ac.in',
   password: 'library123',
 }
 

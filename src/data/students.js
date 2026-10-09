@@ -9,8 +9,8 @@
 export const mockStudents = [
   {
     id: 'st1',
-    name: 'Shivangi Verma',
-    email: 'shivangi.verma@mitsgwl.ac.in',
+    name: 'Vijay Verma',
+    email: 'vijay.verma@mitsgwl.ac.in',
     studentId: 'BTCS2601146',
     branch: 'Computer Science',
     program: 'B.Tech',
