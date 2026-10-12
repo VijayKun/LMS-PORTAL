@@ -10,6 +10,14 @@ bool student_routes_handle(AppContext *app, struct mg_connection *c,
   if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {
     return false;
   }
+
+  /* GET /api/students/:id - the '*' captures exactly one path segment. */
+  struct mg_str caps[1];
+  if (mg_match(hm->uri, mg_str("/api/students/*"), caps)) {
+    student_controller_get(app, c, hm, caps[0]);
+    return true;
+  }
+
   if (!mg_match(hm->uri, mg_str("/api/students"), NULL)) {
     return false;
   }

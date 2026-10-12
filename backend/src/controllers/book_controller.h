@@ -15,4 +15,8 @@ void book_controller_list(AppContext *app, struct mg_connection *c,
 void book_controller_get(AppContext *app, struct mg_connection *c,
                          const struct mg_http_message *hm, struct mg_str id);
 
+/** GET /api/books/isbn/:isbn - return a single book by ISBN, or 404. */
+void book_controller_get_by_isbn(AppContext *app, struct mg_connection *c,
+                                 const struct mg_http_message *hm, struct mg_str isbn);
+
 #endif /* LMS_BOOK_CONTROLLER_H */

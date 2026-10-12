@@ -191,12 +191,18 @@ Press **Ctrl + C** to stop the server.
 | `GET` | `/api/books` | `200` | `{"books":[...]}` from `public.books`, ordered by title |
 | `GET` | `/api/books` | `503` | database not configured or unreachable |
 | `GET` | `/api/books` | `500` | query failed or result too large (generic message) |
+| `GET` | `/api/books?q=&category=&limit=&offset=` | `200` | filtered + paginated catalog; response includes `limit`/`offset` |
 | `GET` | `/api/books/:id` | `200` | `{"book":{...}}` for one row of `public.books` |
 | `GET` | `/api/books/:id` | `404` | `{"error":"not_found"}` when no such id |
 | `GET` | `/api/books/:id` | `503` | database not configured or unreachable |
+| `GET` | `/api/books/isbn/:isbn` | `200` | `{"book":{...}}` by unique ISBN |
+| `GET` | `/api/books/isbn/:isbn` | `404` | `{"error":"not_found"}` when no such ISBN |
 | `GET` | `/api/students` | `200` | `{"students":[...]}` from `public.students`, ordered by name |
 | `GET` | `/api/students` | `503` | database not configured or unreachable |
 | `GET` | `/api/students` | `500` | query failed or result too large (generic message) |
+| `GET` | `/api/students/:id` | `200` | `{"student":{...}}` for one row of `public.students` |
+| `GET` | `/api/students/:id` | `404` | `{"error":"not_found"}` when no such id |
+| `GET` | `/api/students/:id` | `503` | database not configured or unreachable |
 | any | unknown `/api/*` | `404` | `{"error":"not_found"}` |
 
 The `/api/books` handler selects only `id, title, author, isbn, category,
@@ -213,7 +219,9 @@ never returned to clients.
   (`PQconnectdbParams` + `PQexecParams`); `book_service_list()` implements
   `GET /api/books` and `book_service_get()` implements `GET /api/books/:id` as
   read-only JSON; `student_service_list()` implements `GET /api/students`.
-  `db/schema.sql` defines the database.
+  `db/schema.sql` defines the database. Catalog search (`q`/`category`/
+  `limit`/`offset`), `GET /api/books/isbn/:isbn` and `GET /api/students/:id` are
+  also done.
 - **Milestone 3** - authentication + authorization middleware (real sessions;
   client-side route guards are not enough), then book CRUD.
 - **Milestone 4** - loans, reservations, fines, notifications and reports.

@@ -10,7 +10,7 @@
 #include "server/server.h"
 
 /**
- * Handle GET /api/students.
+ * Handle GET /api/students and GET /api/students/:id.
  * @return true when the request was handled here.
  */
 bool student_routes_handle(AppContext *app, struct mg_connection *c,

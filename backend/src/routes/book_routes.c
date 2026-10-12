@@ -11,8 +11,14 @@ bool book_routes_handle(AppContext *app, struct mg_connection *c,
     return false;
   }
 
-  /* GET /api/books/:id - the '*' captures exactly one path segment. */
+  /* GET /api/books/isbn/:isbn - checked first so it is not read as an id. */
   struct mg_str caps[1];
+  if (mg_match(hm->uri, mg_str("/api/books/isbn/*"), caps)) {
+    book_controller_get_by_isbn(app, c, hm, caps[0]);
+    return true;
+  }
+
+  /* GET /api/books/:id - the '*' captures exactly one path segment. */
   if (mg_match(hm->uri, mg_str("/api/books/*"), caps)) {
     book_controller_get(app, c, hm, caps[0]);
     return true;

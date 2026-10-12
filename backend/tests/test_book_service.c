@@ -86,6 +86,41 @@ static void test_get_disconnected_database_is_unavailable(void) {
   CHECK(status == BOOK_GET_DB_UNAVAILABLE);
 }
 
+static void test_get_by_isbn_empty_is_not_found(void) {
+  char out[128];
+  char err[128] = {0};
+
+  BookGetStatus status =
+      book_service_get_by_isbn(NULL, "", out, sizeof(out), err, sizeof(err));
+  CHECK(status == BOOK_GET_NOT_FOUND);
+}
+
+static void test_get_by_isbn_null_database_is_unavailable(void) {
+  char out[128];
+  char err[128] = {0};
+
+  BookGetStatus status =
+      book_service_get_by_isbn(NULL, "9780132350884", out, sizeof(out), err, sizeof(err));
+  CHECK(status == BOOK_GET_DB_UNAVAILABLE);
+}
+
+static void test_search_null_database_is_unavailable(void) {
+  char out[128];
+  char err[128] = {0};
+
+  BookListStatus status = book_service_search(NULL, NULL, out, sizeof(out), err, sizeof(err));
+  CHECK(status == BOOK_LIST_DB_UNAVAILABLE);
+}
+
+static void test_search_null_output_buffer_is_too_small(void) {
+  Database db;
+  memset(&db, 0, sizeof(db));
+  char err[128] = {0};
+
+  BookListStatus status = book_service_search(&db, NULL, NULL, 64, err, sizeof(err));
+  CHECK(status == BOOK_LIST_BUFFER_TOO_SMALL);
+}
+
 int main(void) {
   printf("Running book_service tests...\n");
   test_null_database_is_unavailable();
@@ -95,6 +130,10 @@ int main(void) {
   test_get_empty_id_is_not_found();
   test_get_null_database_is_unavailable();
   test_get_disconnected_database_is_unavailable();
+  test_get_by_isbn_empty_is_not_found();
+  test_get_by_isbn_null_database_is_unavailable();
+  test_search_null_database_is_unavailable();
+  test_search_null_output_buffer_is_too_small();
 
   if (g_failures == 0) {
     printf("All book_service tests passed.\n");
