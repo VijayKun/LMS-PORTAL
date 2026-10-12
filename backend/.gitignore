@@ -1,0 +1,17 @@
+# Local secrets - never commit these
+.env
+.env.local
+
+# Build output
+build/
+*.o
+*.obj
+*.d
+*.exe
+*.a
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
