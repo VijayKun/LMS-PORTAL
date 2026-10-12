@@ -60,12 +60,41 @@ static void test_zero_size_buffer_is_too_small(void) {
   CHECK(status == BOOK_LIST_BUFFER_TOO_SMALL);
 }
 
+static void test_get_empty_id_is_not_found(void) {
+  char out[128];
+  char err[128] = {0};
+
+  BookGetStatus status = book_service_get(NULL, "", out, sizeof(out), err, sizeof(err));
+  CHECK(status == BOOK_GET_NOT_FOUND);
+}
+
+static void test_get_null_database_is_unavailable(void) {
+  char out[128];
+  char err[128] = {0};
+
+  BookGetStatus status = book_service_get(NULL, "bk1", out, sizeof(out), err, sizeof(err));
+  CHECK(status == BOOK_GET_DB_UNAVAILABLE);
+}
+
+static void test_get_disconnected_database_is_unavailable(void) {
+  Database db;
+  memset(&db, 0, sizeof(db)); /* conn = NULL, connected = false */
+  char out[128];
+  char err[128] = {0};
+
+  BookGetStatus status = book_service_get(&db, "bk1", out, sizeof(out), err, sizeof(err));
+  CHECK(status == BOOK_GET_DB_UNAVAILABLE);
+}
+
 int main(void) {
   printf("Running book_service tests...\n");
   test_null_database_is_unavailable();
   test_disconnected_database_is_unavailable();
   test_null_output_buffer_is_too_small();
   test_zero_size_buffer_is_too_small();
+  test_get_empty_id_is_not_found();
+  test_get_null_database_is_unavailable();
+  test_get_disconnected_database_is_unavailable();
 
   if (g_failures == 0) {
     printf("All book_service tests passed.\n");

@@ -58,6 +58,7 @@ backend/
 │   ├── middleware/            cross-cutting: CORS now, auth later
 │   └── utils/                 JSON building, response helpers, validation
 ├── lib/                       vendored third-party code (mongoose.c/.h)
+├── db/                        SQL schema for Supabase (schema.sql)
 ├── include/                   reserved for installed/public headers (currently unused)
 ├── tests/                     unit tests (plain C, run with `make test`)
 ├── build/                     compiler output (git-ignored, created by build)
@@ -127,6 +128,23 @@ startup (shown as `(set)` / `(empty)`). **Never commit `.env`.**
 
 ---
 
+## Database schema
+
+`db/schema.sql` defines the PostgreSQL (Supabase) tables: `branches`, `books`,
+`students`, `admins`, `transactions`, `reservations`, `fines` and
+`notifications`. It is idempotent (`CREATE TABLE IF NOT EXISTS`, no drops), so
+it is safe to re-run. Apply it once against the Supabase database:
+
+```bash
+psql "host=db.<ref>.supabase.co port=5432 dbname=postgres user=postgres password=<pw> sslmode=require" \
+  -f db/schema.sql
+```
+
+The catalog column names in `books` mirror `BOOKS_SELECT_SQL` in
+`src/services/book_service.c` - keep the two in sync.
+
+---
+
 ## Build and run
 
 Make sure `C:\msys64\ucrt64\bin` (toolchain, `libpq`, runtime DLLs) and
@@ -173,6 +191,9 @@ Press **Ctrl + C** to stop the server.
 | `GET` | `/api/books` | `200` | `{"books":[...]}` from `public.books`, ordered by title |
 | `GET` | `/api/books` | `503` | database not configured or unreachable |
 | `GET` | `/api/books` | `500` | query failed or result too large (generic message) |
+| `GET` | `/api/books/:id` | `200` | `{"book":{...}}` for one row of `public.books` |
+| `GET` | `/api/books/:id` | `404` | `{"error":"not_found"}` when no such id |
+| `GET` | `/api/books/:id` | `503` | database not configured or unreachable |
 | any | unknown `/api/*` | `404` | `{"error":"not_found"}` |
 
 The `/api/books` handler selects only `id, title, author, isbn, category,
@@ -187,7 +208,8 @@ never returned to clients.
 
 - **Milestone 2 (done)** - `database/db.c` connects to Supabase with `libpq`
   (`PQconnectdbParams` + `PQexecParams`); `book_service_list()` implements
-  `GET /api/books` as read-only JSON.
+  `GET /api/books` and `book_service_get()` implements `GET /api/books/:id` as
+  read-only JSON. `db/schema.sql` defines the database.
 - **Milestone 3** - authentication + authorization middleware (real sessions;
   client-side route guards are not enough), then book CRUD.
 - **Milestone 4** - loans, reservations, fines, notifications and reports.

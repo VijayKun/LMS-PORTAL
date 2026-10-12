@@ -10,7 +10,7 @@
 #include "server/server.h"
 
 /**
- * Handle the request if it is GET /api/books.
+ * Handle GET /api/books and GET /api/books/:id.
  * @return true when the request was handled here.
  */
 bool book_routes_handle(AppContext *app, struct mg_connection *c,

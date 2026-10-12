@@ -149,6 +149,35 @@ static bool is_json_number(const char *s) {
   return *p == '\0';
 }
 
+/* Write a single JSON object from one row of ncols cells. */
+static void w_object(Writer *w, const char *const *keys, const int *kinds,
+                     const char *const *values, int ncols) {
+  w_putc(w, '{');
+  for (int col = 0; col < ncols; col++) {
+    if (col > 0) {
+      w_putc(w, ',');
+    }
+
+    w_string(w, (keys[col] != NULL) ? keys[col] : "");
+    w_putc(w, ':');
+
+    const char *value = values[col];
+    int kind = (kinds != NULL) ? kinds[col] : JSON_VALUE_STRING;
+
+    if (value == NULL) {
+      w_puts(w, "null");
+    } else if (kind == JSON_VALUE_NUMBER && is_json_number(value)) {
+      w_puts(w, value);
+    } else if (kind == JSON_VALUE_BOOL && value[0] != '\0' && value[1] == '\0' &&
+               (value[0] == 't' || value[0] == 'f')) {
+      w_puts(w, (value[0] == 't') ? "true" : "false");
+    } else {
+      w_string(w, value);
+    }
+  }
+  w_putc(w, '}');
+}
+
 int json_array_of_objects(const char *const *keys, const int *kinds,
                           const char *const *values, int nrows, int ncols,
                           char *out, size_t out_size) {
@@ -166,32 +195,31 @@ int json_array_of_objects(const char *const *keys, const int *kinds,
     if (row > 0) {
       w_putc(&w, ',');
     }
-    w_putc(&w, '{');
-    for (int col = 0; col < ncols; col++) {
-      if (col > 0) {
-        w_putc(&w, ',');
-      }
-
-      w_string(&w, (keys[col] != NULL) ? keys[col] : "");
-      w_putc(&w, ':');
-
-      const char *value = values[row * ncols + col];
-      int kind = (kinds != NULL) ? kinds[col] : JSON_VALUE_STRING;
-
-      if (value == NULL) {
-        w_puts(&w, "null");
-      } else if (kind == JSON_VALUE_NUMBER && is_json_number(value)) {
-        w_puts(&w, value);
-      } else if (kind == JSON_VALUE_BOOL && value[0] != '\0' && value[1] == '\0' &&
-                 (value[0] == 't' || value[0] == 'f')) {
-        w_puts(&w, (value[0] == 't') ? "true" : "false");
-      } else {
-        w_string(&w, value);
-      }
-    }
-    w_putc(&w, '}');
+    w_object(&w, keys, kinds, values + (size_t)row * (size_t)ncols, ncols);
   }
   w_putc(&w, ']');
+
+  if (w.overflow) {
+    out[out_size - 1] = '\0';
+    return -1;
+  }
+
+  out[w.len] = '\0';
+  return (int)w.len;
+}
+
+int json_object_of_row(const char *const *keys, const int *kinds,
+                       const char *const *values, int ncols, char *out,
+                       size_t out_size) {
+  if (out == NULL || out_size == 0 || ncols < 0) {
+    return -1;
+  }
+  if (ncols > 0 && (keys == NULL || values == NULL)) {
+    return -1;
+  }
+
+  Writer w = {out, out_size, 0, false};
+  w_object(&w, keys, kinds, values, ncols);
 
   if (w.overflow) {
     out[out_size - 1] = '\0';

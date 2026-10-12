@@ -11,4 +11,8 @@
 void book_controller_list(AppContext *app, struct mg_connection *c,
                           const struct mg_http_message *hm);
 
+/** GET /api/books/:id - return a single book, or 404 when it does not exist. */
+void book_controller_get(AppContext *app, struct mg_connection *c,
+                         const struct mg_http_message *hm, struct mg_str id);
+
 #endif /* LMS_BOOK_CONTROLLER_H */

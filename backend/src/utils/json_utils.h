@@ -50,4 +50,22 @@ int json_array_of_objects(const char *const *keys, const int *kinds,
                           const char *const *values, int nrows, int ncols,
                           char *out, size_t out_size);
 
+/**
+ * Build a single JSON object from one row of values.
+ *
+ * Same cell rules as json_array_of_objects(), but the output is one `{...}`
+ * object rather than an array.
+ *
+ * @param keys     ncols column names (used as object keys)
+ * @param kinds    ncols value hints, or NULL to treat every value as a string
+ * @param values   ncols values (NULL entries => JSON null)
+ * @param ncols    number of columns
+ * @param out      output buffer
+ * @param out_size size of out (including NUL)
+ * @return bytes written (excluding NUL), or -1 if it does not fit / bad args
+ */
+int json_object_of_row(const char *const *keys, const int *kinds,
+                       const char *const *values, int ncols, char *out,
+                       size_t out_size);
+
 #endif /* LMS_JSON_UTILS_H */
