@@ -16,6 +16,7 @@
 #include "middleware/cors_middleware.h"
 #include "routes/book_routes.h"
 #include "routes/health_routes.h"
+#include "routes/student_routes.h"
 #include "utils/response_utils.h"
 
 static volatile sig_atomic_t g_stop = 0;
@@ -36,6 +37,9 @@ static void dispatch(struct mg_connection *c, const struct mg_http_message *hm) 
     return;
   }
   if (book_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (student_routes_handle(app, c, hm)) {
     return;
   }
 

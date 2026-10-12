@@ -194,6 +194,9 @@ Press **Ctrl + C** to stop the server.
 | `GET` | `/api/books/:id` | `200` | `{"book":{...}}` for one row of `public.books` |
 | `GET` | `/api/books/:id` | `404` | `{"error":"not_found"}` when no such id |
 | `GET` | `/api/books/:id` | `503` | database not configured or unreachable |
+| `GET` | `/api/students` | `200` | `{"students":[...]}` from `public.students`, ordered by name |
+| `GET` | `/api/students` | `503` | database not configured or unreachable |
+| `GET` | `/api/students` | `500` | query failed or result too large (generic message) |
 | any | unknown `/api/*` | `404` | `{"error":"not_found"}` |
 
 The `/api/books` handler selects only `id, title, author, isbn, category,
@@ -209,7 +212,8 @@ never returned to clients.
 - **Milestone 2 (done)** - `database/db.c` connects to Supabase with `libpq`
   (`PQconnectdbParams` + `PQexecParams`); `book_service_list()` implements
   `GET /api/books` and `book_service_get()` implements `GET /api/books/:id` as
-  read-only JSON. `db/schema.sql` defines the database.
+  read-only JSON; `student_service_list()` implements `GET /api/students`.
+  `db/schema.sql` defines the database.
 - **Milestone 3** - authentication + authorization middleware (real sessions;
   client-side route guards are not enough), then book CRUD.
 - **Milestone 4** - loans, reservations, fines, notifications and reports.

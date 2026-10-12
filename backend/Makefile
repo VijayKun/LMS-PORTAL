@@ -36,8 +36,11 @@ SRCS := \
   $(SRCDIR)/server/server.c \
   $(SRCDIR)/routes/health_routes.c \
   $(SRCDIR)/routes/book_routes.c \
+  $(SRCDIR)/routes/student_routes.c \
   $(SRCDIR)/controllers/book_controller.c \
+  $(SRCDIR)/controllers/student_controller.c \
   $(SRCDIR)/services/book_service.c \
+  $(SRCDIR)/services/student_service.c \
   $(SRCDIR)/middleware/cors_middleware.c \
   $(SRCDIR)/utils/json_utils.c \
   $(SRCDIR)/utils/response_utils.c \
@@ -50,7 +53,8 @@ DEPS := $(OBJS:.o=.d)
 #   * test_json_utils / test_books_json link only json_utils.c.
 #   * test_book_service links the service + db layer (and therefore libpq) but
 #     only exercises the "no database" paths, so it needs no credentials.
-TEST_SRCS := tests/test_json_utils.c tests/test_books_json.c tests/test_book_service.c
+TEST_SRCS := tests/test_json_utils.c tests/test_books_json.c tests/test_book_service.c \
+  tests/test_student_service.c
 TEST_BINS := $(patsubst tests/%.c,build/%.exe,$(TEST_SRCS))
 
 .PHONY: all run test clean help
@@ -71,6 +75,13 @@ build/test_json_utils.exe build/test_books_json.exe: build/%.exe: tests/%.c $(SR
 
 build/test_book_service.exe: tests/test_book_service.c \
   $(SRCDIR)/services/book_service.c \
+  $(SRCDIR)/database/db.c \
+  $(SRCDIR)/utils/json_utils.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+build/test_student_service.exe: tests/test_student_service.c \
+  $(SRCDIR)/services/student_service.c \
   $(SRCDIR)/database/db.c \
   $(SRCDIR)/utils/json_utils.c
 	@mkdir -p $(dir $@)
