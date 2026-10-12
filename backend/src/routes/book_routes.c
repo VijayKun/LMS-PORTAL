@@ -4,30 +4,52 @@
 #include "routes/book_routes.h"
 
 #include "controllers/book_controller.h"
+#include "utils/response_utils.h"
 
 bool book_routes_handle(AppContext *app, struct mg_connection *c,
                         const struct mg_http_message *hm) {
-  if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {
-    return false;
-  }
+  struct mg_str caps[1];
 
   /* GET /api/books/isbn/:isbn - checked first so it is not read as an id. */
-  struct mg_str caps[1];
   if (mg_match(hm->uri, mg_str("/api/books/isbn/*"), caps)) {
+    if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {
+      send_json_error(c, 405, "method_not_allowed", "Use GET.");
+      return true;
+    }
     book_controller_get_by_isbn(app, c, hm, caps[0]);
     return true;
   }
 
-  /* GET /api/books/:id - the '*' captures exactly one path segment. */
-  if (mg_match(hm->uri, mg_str("/api/books/*"), caps)) {
-    book_controller_get(app, c, hm, caps[0]);
+  bool is_item = mg_match(hm->uri, mg_str("/api/books/*"), caps);
+  bool is_list = mg_match(hm->uri, mg_str("/api/books"), NULL);
+
+  if (!is_item && !is_list) {
+    return false; /* some other /api/* route */
+  }
+
+  /* GET: item then list. */
+  if (mg_strcasecmp(hm->method, mg_str("GET")) == 0) {
+    if (is_item) {
+      book_controller_get(app, c, hm, caps[0]);
+    } else {
+      book_controller_list(app, c, hm);
+    }
     return true;
   }
 
-  if (!mg_match(hm->uri, mg_str("/api/books"), NULL)) {
-    return false;
+  /* Write operations require a valid session (checked inside the controller). */
+  if (is_list && mg_strcasecmp(hm->method, mg_str("POST")) == 0) {
+    book_controller_create(app, c, hm);
+    return true;
+  }
+  if (is_item && mg_strcasecmp(hm->method, mg_str("PUT")) == 0) {
+    book_controller_update(app, c, hm, caps[0]);
+    return true;
+  }
+  if (is_item && mg_strcasecmp(hm->method, mg_str("DELETE")) == 0) {
+    book_controller_delete(app, c, hm, caps[0]);
+    return true;
   }
 
-  book_controller_list(app, c, hm);
-  return true;
+  return false;
 }

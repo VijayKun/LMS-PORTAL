@@ -10,6 +10,7 @@
 #ifndef LMS_CONFIG_H
 #define LMS_CONFIG_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #define LMS_MAX_STR 256
@@ -32,6 +33,9 @@ typedef struct {
   char port[16];
   char cors_origin[LMS_MAX_STR];
   DbConfig db;
+  long session_ttl_seconds;      /* absolute session lifetime (<=0 = never) */
+  long session_ttl_idle_seconds; /* idle timeout (<=0 = never) */
+  bool cookie_secure;            /* add 'Secure' to the session cookie */
 } ServerConfig;
 
 /**

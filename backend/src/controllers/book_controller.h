@@ -19,4 +19,16 @@ void book_controller_get(AppContext *app, struct mg_connection *c,
 void book_controller_get_by_isbn(AppContext *app, struct mg_connection *c,
                                  const struct mg_http_message *hm, struct mg_str isbn);
 
+/** POST /api/books - create a book (a valid session is required). */
+void book_controller_create(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm);
+
+/** PUT /api/books/:id - update provided fields (a valid session is required). */
+void book_controller_update(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm, struct mg_str id);
+
+/** DELETE /api/books/:id - delete a book (a valid session is required). */
+void book_controller_delete(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm, struct mg_str id);
+
 #endif /* LMS_BOOK_CONTROLLER_H */

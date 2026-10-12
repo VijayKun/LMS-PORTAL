@@ -133,6 +133,14 @@ void config_load(ServerConfig *cfg, const char *env_path) {
   snprintf(cfg->db.user, sizeof(cfg->db.user), "%s", cfg_get("LMS_DB_USER", ""));
   snprintf(cfg->db.password, sizeof(cfg->db.password), "%s", cfg_get("LMS_DB_PASSWORD", ""));
   snprintf(cfg->db.sslmode, sizeof(cfg->db.sslmode), "%s", cfg_get("LMS_DB_SSLMODE", "require"));
+
+  cfg->session_ttl_seconds = strtol(cfg_get("LMS_SESSION_TTL_SECONDS", "43200"), NULL, 10);
+  cfg->session_ttl_idle_seconds =
+      strtol(cfg_get("LMS_SESSION_TTL_IDLE_SECONDS", "1800"), NULL, 10);
+
+  const char *secure = cfg_get("LMS_COOKIE_SECURE", "0");
+  cfg->cookie_secure = (strcmp(secure, "1") == 0 || strcmp(secure, "true") == 0 ||
+                        strcmp(secure, "yes") == 0);
 }
 
 void config_print(const ServerConfig *cfg) {
@@ -149,4 +157,7 @@ void config_print(const ServerConfig *cfg) {
   printf("[config] db user     : %s\n", cfg->db.user[0] ? cfg->db.user : "(not set)");
   printf("[config] db password : %s\n", cfg->db.password[0] ? "(set)" : "(empty)");
   printf("[config] db sslmode  : %s\n", cfg->db.sslmode);
+  printf("[config] session ttl : %lds absolute, %lds idle; cookie secure=%s\n",
+         cfg->session_ttl_seconds, cfg->session_ttl_idle_seconds,
+         cfg->cookie_secure ? "yes" : "no");
 }

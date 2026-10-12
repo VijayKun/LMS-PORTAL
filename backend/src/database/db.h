@@ -74,4 +74,26 @@ bool db_query(Database *db, const char *sql, const char *const *params, int npar
 /** Free everything owned by a DbResult and reset it. */
 void db_result_free(DbResult *result);
 
+/**
+ * Execute a statement whose result is ignored (`COMMAND_OK` or `TUPLES_OK`).
+ * Used for control statements (BEGIN / COMMIT / ROLLBACK) and mutations that
+ * do not need their result. Errors carry the same [SQLSTATE ..] prefix as
+ * db_query() failures.
+ */
+bool db_execute(Database *db, const char *sql, const char *const *params, int nparams,
+                char *errbuf, size_t errlen);
+
+/*
+ * On failure, db_query() prefixes the error buffer with the PostgreSQL
+ * SQLSTATE so business rules can tell exception classes apart (e.g. a UNIQUE
+ * violation from an INSERT is not the same as a lost connection). These are
+ * the codes this backend relies on; log-only, never sent to clients.
+ */
+#define DB_SQLSTATE_UNIQUE_VIOLATION    "23505"
+#define DB_SQLSTATE_FOREIGN_KEY_VIOLATION "23503"
+#define DB_SQLSTATE_CHECK_VIOLATION     "23514"
+
+/** @return true when errbuf (from a failed db_query) carries `state`. */
+bool db_has_sqlstate(const char *errbuf, const char *state);
+
 #endif /* LMS_DB_H */

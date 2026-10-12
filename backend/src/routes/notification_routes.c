@@ -1,0 +1,27 @@
+/**
+ * notification_routes.c - Routes for notifications.
+ */
+#include "routes/notification_routes.h"
+
+#include "controllers/notification_controller.h"
+
+bool notification_routes_handle(AppContext *app, struct mg_connection *c,
+                                const struct mg_http_message *hm) {
+  if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {
+    return false;
+  }
+
+  /* GET /api/notifications/:id - the '*' captures exactly one path segment. */
+  struct mg_str caps[1];
+  if (mg_match(hm->uri, mg_str("/api/notifications/*"), caps)) {
+    notification_controller_get(app, c, hm, caps[0]);
+    return true;
+  }
+
+  if (!mg_match(hm->uri, mg_str("/api/notifications"), NULL)) {
+    return false;
+  }
+
+  notification_controller_list(app, c, hm);
+  return true;
+}

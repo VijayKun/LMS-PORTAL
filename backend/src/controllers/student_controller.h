@@ -15,4 +15,16 @@ void student_controller_list(AppContext *app, struct mg_connection *c,
 void student_controller_get(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm, struct mg_str id);
 
+/** POST /api/students - create a student (a valid session is required). */
+void student_controller_create(AppContext *app, struct mg_connection *c,
+                               const struct mg_http_message *hm);
+
+/** PUT /api/students/:id - update provided fields (a valid session is required). */
+void student_controller_update(AppContext *app, struct mg_connection *c,
+                               const struct mg_http_message *hm, struct mg_str id);
+
+/** DELETE /api/students/:id - delete a student (a valid session is required). */
+void student_controller_delete(AppContext *app, struct mg_connection *c,
+                               const struct mg_http_message *hm, struct mg_str id);
+
 #endif /* LMS_STUDENT_CONTROLLER_H */

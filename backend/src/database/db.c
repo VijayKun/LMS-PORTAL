@@ -132,7 +132,16 @@ bool db_query(Database *db, const char *sql, const char *const *params, int npar
   }
 
   if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-    set_error(errbuf, errlen, PQresultErrorMessage(res));
+    /* Prefix the SQLSTATE so db_has_sqlstate() can classify the failure. */
+    char combined[512];
+    const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+    if (sqlstate != NULL && sqlstate[0] != '\0') {
+      snprintf(combined, sizeof(combined), "[SQLSTATE %s] %s", sqlstate,
+               PQresultErrorMessage(res));
+    } else {
+      snprintf(combined, sizeof(combined), "%s", PQresultErrorMessage(res));
+    }
+    set_error(errbuf, errlen, combined);
     PQclear(res);
     return false;
   }
@@ -175,6 +184,47 @@ bool db_query(Database *db, const char *sql, const char *const *params, int npar
         out->values[index] = dup_string(PQgetvalue(res, row, col));
       }
     }
+  }
+
+  PQclear(res);
+  return true;
+}
+
+bool db_has_sqlstate(const char *errbuf, const char *state) {
+  if (errbuf == NULL || state == NULL || state[0] == '\0') {
+    return false;
+  }
+  char needle[96];
+  snprintf(needle, sizeof(needle), "[SQLSTATE %s]", state);
+  return strstr(errbuf, needle) != NULL;
+}
+
+bool db_execute(Database *db, const char *sql, const char *const *params, int nparams,
+                char *errbuf, size_t errlen) {
+  if (!db_is_configured(db)) {
+    set_error(errbuf, errlen, "database is not connected");
+    return false;
+  }
+
+  PGresult *res = PQexecParams(db->conn, sql, nparams, NULL, params, NULL, NULL, 0);
+  if (res == NULL) {
+    set_error(errbuf, errlen, "query could not be executed");
+    return false;
+  }
+
+  ExecStatusType status = PQresultStatus(res);
+  if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+    char combined[512];
+    const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+    if (sqlstate != NULL && sqlstate[0] != '\0') {
+      snprintf(combined, sizeof(combined), "[SQLSTATE %s] %s", sqlstate,
+               PQresultErrorMessage(res));
+    } else {
+      snprintf(combined, sizeof(combined), "%s", PQresultErrorMessage(res));
+    }
+    set_error(errbuf, errlen, combined);
+    PQclear(res);
+    return false;
   }
 
   PQclear(res);

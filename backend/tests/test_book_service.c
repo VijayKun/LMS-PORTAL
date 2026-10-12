@@ -121,6 +121,147 @@ static void test_search_null_output_buffer_is_too_small(void) {
   CHECK(status == BOOK_LIST_BUFFER_TOO_SMALL);
 }
 
+/* ---- create ---- */
+
+static void test_create_null_database_is_unavailable(void) {
+  char err[128] = {0};
+  char id[64];
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000001");
+
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_DB_UNAVAILABLE);
+  CHECK(book_service_create(&(Database){0}, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_DB_UNAVAILABLE);
+}
+
+static void test_create_missing_title_is_bad_input(void) {
+  char err[128] = {0};
+  char id[64];
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.isbn, "9780000000002");
+
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+}
+
+static void test_create_missing_isbn_is_bad_input(void) {
+  char err[128] = {0};
+  char id[64];
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+}
+
+static void test_create_bad_numbers_are_bad_input(void) {
+  char err[128] = {0};
+  char id[64];
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000003");
+  strcpy(b.total_copies, "not-a-number");
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000003");
+  strcpy(b.available_copies, "-1");
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000003");
+  strcpy(b.available_copies, "3");
+  strcpy(b.total_copies, "2");
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000003");
+  strcpy(b.year, "99999");
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+}
+
+static void test_create_bad_date_is_bad_input(void) {
+  char err[128] = {0};
+  char id[64];
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000004");
+  strcpy(b.publication_date, "not-a-date");
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "A Book");
+  strcpy(b.isbn, "9780000000004");
+  strcpy(b.publication_date, "2025-02-31"); /* invalid day, still rejected */
+  CHECK(book_service_create(NULL, &b, id, sizeof(id), err, sizeof(err)) ==
+        BOOK_CREATE_BAD_INPUT);
+}
+
+/* ---- update ---- */
+
+static void test_update_null_database_is_unavailable(void) {
+  char err[128] = {0};
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "Renamed");
+
+  CHECK(book_service_update(NULL, "bk9", &b, err, sizeof(err)) ==
+        BOOK_UPDATE_DB_UNAVAILABLE);
+}
+
+static void test_update_empty_id_is_not_found(void) {
+  char err[128] = {0};
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.title, "Renamed");
+
+  CHECK(book_service_update(NULL, "", &b, err, sizeof(err)) == BOOK_UPDATE_NOT_FOUND);
+}
+
+static void test_update_no_fields_is_bad_input(void) {
+  char err[128] = {0};
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+
+  CHECK(book_service_update(NULL, "bk9", &b, err, sizeof(err)) == BOOK_UPDATE_BAD_INPUT);
+}
+
+static void test_update_bad_numbers_are_bad_input(void) {
+  char err[128] = {0};
+  BookMutate b;
+  memset(&b, 0, sizeof(b));
+  strcpy(b.total_copies, "7");
+  strcpy(b.available_copies, "9");
+  CHECK(book_service_update(NULL, "bk9", &b, err, sizeof(err)) == BOOK_UPDATE_BAD_INPUT);
+}
+
+/* ---- delete ---- */
+
+static void test_delete_null_database_is_unavailable(void) {
+  char err[128] = {0};
+  CHECK(book_service_delete(NULL, "bk9", err, sizeof(err)) == BOOK_DELETE_DB_UNAVAILABLE);
+}
+
+static void test_delete_empty_id_is_not_found(void) {
+  char err[128] = {0};
+  CHECK(book_service_delete(NULL, "", err, sizeof(err)) == BOOK_DELETE_NOT_FOUND);
+}
+
 int main(void) {
   printf("Running book_service tests...\n");
   test_null_database_is_unavailable();
@@ -134,6 +275,17 @@ int main(void) {
   test_get_by_isbn_null_database_is_unavailable();
   test_search_null_database_is_unavailable();
   test_search_null_output_buffer_is_too_small();
+  test_create_null_database_is_unavailable();
+  test_create_missing_title_is_bad_input();
+  test_create_missing_isbn_is_bad_input();
+  test_create_bad_numbers_are_bad_input();
+  test_create_bad_date_is_bad_input();
+  test_update_null_database_is_unavailable();
+  test_update_empty_id_is_not_found();
+  test_update_no_fields_is_bad_input();
+  test_update_bad_numbers_are_bad_input();
+  test_delete_null_database_is_unavailable();
+  test_delete_empty_id_is_not_found();
 
   if (g_failures == 0) {
     printf("All book_service tests passed.\n");

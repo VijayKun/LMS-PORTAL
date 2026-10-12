@@ -4,6 +4,7 @@
 #ifndef LMS_SERVER_H
 #define LMS_SERVER_H
 
+#include "auth/session_store.h"
 #include "config/config.h"
 #include "database/db.h"
 
@@ -14,6 +15,7 @@
 typedef struct {
   const ServerConfig *cfg;
   Database *db;
+  SessionStore sessions; /* server-side login sessions */
 } AppContext;
 
 /**

@@ -14,8 +14,14 @@
 #include <string.h>
 
 #include "middleware/cors_middleware.h"
+#include "routes/auth_routes.h"
 #include "routes/book_routes.h"
+#include "routes/fine_routes.h"
 #include "routes/health_routes.h"
+#include "routes/loan_routes.h"
+#include "routes/notification_routes.h"
+#include "routes/report_routes.h"
+#include "routes/reservation_routes.h"
 #include "routes/student_routes.h"
 #include "utils/response_utils.h"
 
@@ -36,10 +42,28 @@ static void dispatch(struct mg_connection *c, const struct mg_http_message *hm) 
   if (health_routes_handle(app, c, hm)) {
     return;
   }
+  if (auth_routes_handle(app, c, hm)) {
+    return;
+  }
   if (book_routes_handle(app, c, hm)) {
     return;
   }
   if (student_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (loan_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (reservation_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (fine_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (notification_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (report_routes_handle(app, c, hm)) {
     return;
   }
 
@@ -65,6 +89,7 @@ int server_run(const ServerConfig *cfg, Database *db) {
 
   app.cfg = cfg;
   app.db = db;
+  session_store_init(&app.sessions);
 
   cors_init(cfg);
   health_routes_init();
