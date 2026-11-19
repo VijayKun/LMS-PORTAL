@@ -12,7 +12,9 @@
 
 #include "middleware/auth_middleware.h"
 #include "services/book_service.h"
+#include "services/isbn_service.h"
 #include "utils/json_parse.h"
+#include "utils/json_utils.h"
 #include "utils/response_utils.h"
 
 /* Large enough for a full page of the catalog (bounded by the limit cap). */
@@ -176,6 +178,92 @@ void book_controller_get_by_isbn(AppContext *app, struct mg_connection *c,
     send_get_status(c, status, isbnbuf, errbuf);
   }
 
+  free(buffer);
+}
+
+static void escape_or_empty(const char *src, char *dst, size_t cap) {
+  if (json_escape(src != NULL ? src : "", dst, cap) < 0) {
+    dst[0] = '\0';
+  }
+}
+
+void book_controller_lookup_isbn(AppContext *app, struct mg_connection *c,
+                                 const struct mg_http_message *hm, struct mg_str isbn) {
+  (void)hm;
+
+  char isbnbuf[ISBN_STR_MAX];
+  if (!copy_segment(isbnbuf, sizeof(isbnbuf), isbn)) {
+    send_json_error(c, 400, "invalid_isbn", "An ISBN is required.");
+    return;
+  }
+
+  const char *api_key = (app != NULL && app->cfg != NULL)
+                            ? app->cfg->google_books_api_key
+                            : "";
+
+  IsbnInfo info;
+  char errbuf[256] = {0};
+  IsbnLookupStatus status = isbn_service_lookup(api_key, isbnbuf, &info, errbuf,
+                                                sizeof(errbuf));
+
+  if (status == ISBN_LOOKUP_BAD_INPUT) {
+    send_json_error(c, 400, "invalid_isbn",
+                    "ISBN must be 10 or 13 valid digits.");
+    return;
+  }
+  if (status == ISBN_LOOKUP_UPSTREAM_ERROR) {
+    fprintf(stderr, "[books] ISBN lookup '%s' failed: %s\n", isbnbuf,
+            errbuf[0] ? errbuf : "(no details)");
+    send_json_error(c, 502, "upstream_error",
+                    "The book metadata service is temporarily unavailable.");
+    return;
+  }
+
+  if (status == ISBN_LOOKUP_NOT_FOUND || !info.found) {
+    char body[128];
+    snprintf(body, sizeof(body), "{\"isbn\":\"%s\",\"found\":false}", info.isbn);
+    send_json(c, 200, body);
+    return;
+  }
+
+  char title[ISBN_TITLE_MAX * 2];
+  char author[ISBN_AUTHOR_MAX * 2];
+  char publisher[ISBN_PUBLISHER_MAX * 2];
+  char category[ISBN_CATEGORY_MAX * 2];
+  char date[ISBN_DATE_MAX * 2];
+  char description[ISBN_DESCRIPTION_MAX * 2];
+  char cover[ISBN_COVER_MAX * 2];
+
+  escape_or_empty(info.title, title, sizeof(title));
+  escape_or_empty(info.author, author, sizeof(author));
+  escape_or_empty(info.publisher, publisher, sizeof(publisher));
+  escape_or_empty(info.category, category, sizeof(category));
+  escape_or_empty(info.published_date, date, sizeof(date));
+  escape_or_empty(info.description, description, sizeof(description));
+  escape_or_empty(info.cover, cover, sizeof(cover));
+
+  size_t size = 16384;
+  char *buffer = malloc(size);
+  if (buffer == NULL) {
+    send_json_error(c, 500, "server_error", "The server ran out of memory.");
+    return;
+  }
+
+  int written = snprintf(
+      buffer, size,
+      "{\"isbn\":\"%s\",\"found\":true,\"title\":\"%s\",\"author\":\"%s\","
+      "\"publisher\":\"%s\",\"category\":\"%s\",\"publicationDate\":\"%s\","
+      "\"description\":\"%s\",\"cover\":\"%s\",\"pageCount\":%d}",
+      info.isbn, title, author, publisher, category, date, description, cover,
+      info.page_count);
+
+  if (written < 0 || (size_t)written >= size) {
+    free(buffer);
+    send_json_error(c, 500, "server_error", "The book metadata was too large.");
+    return;
+  }
+
+  send_json(c, 200, buffer);
   free(buffer);
 }
 

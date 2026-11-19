@@ -32,6 +32,7 @@ typedef struct {
   char host[LMS_MAX_STR];
   char port[16];
   char cors_origin[LMS_MAX_STR];
+  char google_books_api_key[LMS_MAX_STR]; /* optional; used by ISBN lookup */
   DbConfig db;
   long session_ttl_seconds;      /* absolute session lifetime (<=0 = never) */
   long session_ttl_idle_seconds; /* idle timeout (<=0 = never) */

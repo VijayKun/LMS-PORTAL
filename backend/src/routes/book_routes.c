@@ -10,6 +10,16 @@ bool book_routes_handle(AppContext *app, struct mg_connection *c,
                         const struct mg_http_message *hm) {
   struct mg_str caps[1];
 
+  /* Google Books metadata lookup - checked before the isbn/id routes. */
+  if (mg_match(hm->uri, mg_str("/api/books/lookup/*"), caps)) {
+    if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {
+      send_json_error(c, 405, "method_not_allowed", "Use GET.");
+      return true;
+    }
+    book_controller_lookup_isbn(app, c, hm, caps[0]);
+    return true;
+  }
+
   /* GET /api/books/isbn/:isbn - checked first so it is not read as an id. */
   if (mg_match(hm->uri, mg_str("/api/books/isbn/*"), caps)) {
     if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {

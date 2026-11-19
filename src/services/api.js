@@ -18,6 +18,9 @@ import { loginRequestSchema, importRowsSchema, parseWith } from '../validation/s
 
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/** Base URL of the C backend. Override with VITE_API_URL in production. */
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '')
+
 /** Simulated network latency for every mock call. */
 export async function simulatedLatency(ms) {
   await delay(ms)
@@ -80,29 +83,69 @@ export async function reserveBookRequest() {
   return { success: true }
 }
 
+/** Normalises Google's partial dates to the YYYY-MM-DD the date input needs. */
+function normalizeDate(value) {
+  const date = String(value || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+  if (/^\d{4}-\d{2}$/.test(date)) return `${date}-01`
+  if (/^\d{4}$/.test(date)) return `${date}-01-01`
+  return ''
+}
+
+function localIsbnLookup(clean) {
+  const known = mockBooks.find((b) => b.isbn.replace(/[-\s]/g, '') === clean)
+  if (!known) return null
+  return {
+    isbn: known.isbn,
+    found: true,
+    title: known.title,
+    author: known.author,
+    category: known.category,
+    publisher: known.publisher,
+  }
+}
+
 /**
- * MOCK ISBN LOOKUP - the bulk import page calls this while "fetching book
- * information". Later it can be replaced with a real ISBN/db/books API so
- * titles, authors and covers are filled in automatically.
+ * ISBN lookup. Calls the backend Google Books proxy, then falls back to the
+ * local demo catalog so the UI keeps working when the backend is offline.
  *
  * @param {string} isbn
- * @returns {{ isbn, found, title?, author?, category?, publisher? }}
+ * @returns {{ isbn, found, source, title?, author?, category?, publisher?,
+ *             publicationDate?, description?, cover? }}
  */
 export async function lookupBookByISBN(isbn) {
-  await delay(500)
-  const clean = String(isbn).replace(/-/g, '')
-  const known = mockBooks.find((b) => b.isbn.replace(/-/g, '') === clean)
-  if (known) {
-    return {
-      isbn: known.isbn,
-      found: true,
-      title: known.title,
-      author: known.author,
-      category: known.category,
-      publisher: known.publisher,
+  const clean = String(isbn).replace(/[-\s]/g, '').toUpperCase()
+  let upstreamReached = false
+
+  try {
+    const res = await fetch(`${API_BASE}/api/books/lookup/${encodeURIComponent(clean)}`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (res.ok) {
+      upstreamReached = true
+      const data = await res.json()
+      if (data?.found) {
+        return {
+          isbn: data.isbn || clean,
+          found: true,
+          source: 'google',
+          title: data.title || '',
+          author: data.author || '',
+          category: data.category || '',
+          publisher: data.publisher || '',
+          publicationDate: normalizeDate(data.publicationDate),
+          description: data.description || '',
+          cover: data.cover || '',
+        }
+      }
     }
+  } catch {
+    // Backend offline or blocked - use the demo catalog below.
   }
-  return { isbn, found: false }
+
+  const local = localIsbnLookup(clean)
+  if (local) return { ...local, source: 'local' }
+  return { isbn: clean, found: false, source: upstreamReached ? 'google' : 'local' }
 }
 
 /**

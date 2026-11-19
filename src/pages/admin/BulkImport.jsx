@@ -14,7 +14,7 @@ import { useToast } from '../../store/ToastContext.jsx'
 import { useLibrary } from '../../store/LibraryContext.jsx'
 import Badge from '../../components/ui/Badge.jsx'
 import Breadcrumbs from '../../components/ui/Breadcrumbs.jsx'
-import { importBooksRequest } from '../../services/api.js'
+import { importBooksRequest, lookupBookByISBN } from '../../services/api.js'
 import { parseCsv, toCsv, downloadTextFile } from '../../utils/csv.js'
 import { buildImportRows } from '../../utils/importRows.js'
 import readXlsxFile from 'read-excel-file/browser'
@@ -24,7 +24,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024
 const STEPS = [
   { label: 'Reading file', note: 'Parsing the spreadsheet rows' },
   { label: 'Validating ISBN', note: 'Checking every ISBN format and checksum' },
-  { label: 'Fetching book information', note: 'ISBN lookup (runs for real once the backend exists)' },
+  { label: 'Fetching book information', note: 'Filling missing details from Google Books' },
   { label: 'Preparing records', note: 'Matching branches, categories and copies' },
   { label: 'Import complete', note: 'Records written to the catalog' },
 ]
@@ -92,47 +92,94 @@ export default function BulkImport() {
     setStep(-1)
   }
 
-  /** Import pipeline - the step animation is cosmetic, the catalog write at the end is real. */
+  /** Fill title-level details that the spreadsheet left blank from Google Books. */
+  async function enrichRows(list) {
+    const enriched = []
+    for (const row of list) {
+      const incomplete =
+        row.initial === 'ready' &&
+        (row.author === 'Unknown' || row.category === 'General' || row.publisher === '—')
+      if (!incomplete) {
+        enriched.push(row)
+        continue
+      }
+
+      const info = await lookupBookByISBN(row.isbn)
+      if (!info.found) {
+        enriched.push(row)
+        continue
+      }
+
+      const prefer = (current, fallback, placeholder) =>
+        current && current !== placeholder ? current : fallback || current
+
+      enriched.push({
+        ...row,
+        author: prefer(row.author, info.author, 'Unknown'),
+        category: prefer(row.category, info.category, 'General'),
+        publisher: prefer(row.publisher, info.publisher, '—'),
+        publicationDate: info.publicationDate || '',
+        description: info.description || '',
+        cover: info.cover || '',
+      })
+    }
+    return enriched
+  }
+
+  /** Import pipeline: validate, enrich, then write the catalog. */
   async function runImport() {
     setPhase('running')
-    const durations = [600, 900, 1200, 700, 500]
-    let total = 0
     timers.current.forEach(clearTimeout)
     timers.current = []
 
-    durations.forEach((ms, index) => {
-      total += ms
-      timers.current.push(
-        setTimeout(async () => {
-          setStep(index)
-          if (index === durations.length - 1) {
-            const ready = rows.filter((r) => r.initial === 'ready')
-            // Validated again with zod at the API boundary before the "request".
-            await importBooksRequest(ready)
-            ready.forEach((r, i) =>
-              addBook({
-                title: r.title,
-                author: r.author,
-                isbn: r.isbn,
-                category: r.category,
-                publisher: r.publisher,
-                publicationDate: '',
-                description: '',
-                cover: COVER_COLORS[i % COVER_COLORS.length],
-                totalCopies: r.copies,
-                availableCopies: r.copies,
-                branchId: r.branchId,
-              }),
-            )
-            setPhase('done')
-            toast(
-              `Bulk import completed: ${ready.length} added, ${failed} failed, ${skipped} skipped.`,
-              'success',
-            )
-          }
-        }, total),
+    const wait = (ms) =>
+      new Promise((resolve) => {
+        timers.current.push(setTimeout(resolve, ms))
+      })
+
+    try {
+      setStep(0)
+      await wait(600)
+      setStep(1)
+      await wait(900)
+      setStep(2)
+      const enriched = await enrichRows(rows)
+      setRows(enriched)
+      await wait(400)
+      setStep(3)
+      await wait(700)
+      setStep(4)
+
+      const ready = enriched.filter((r) => r.initial === 'ready')
+      // Validated again with zod at the API boundary before the "request".
+      await importBooksRequest(ready)
+      ready.forEach((r, i) =>
+        addBook({
+          title: r.title,
+          author: r.author,
+          isbn: r.isbn,
+          category: r.category,
+          publisher: r.publisher,
+          publicationDate: r.publicationDate || '',
+          description: r.description || '',
+          cover: r.cover || COVER_COLORS[i % COVER_COLORS.length],
+          totalCopies: r.copies,
+          availableCopies: r.copies,
+          branchId: r.branchId,
+        }),
       )
-    })
+
+      const failedCount = enriched.filter((r) => r.result === 'failed').length
+      const skippedCount = enriched.filter((r) => r.result === 'skipped').length
+      setPhase('done')
+      toast(
+        `Bulk import completed: ${ready.length} added, ${failedCount} failed, ${skippedCount} skipped.`,
+        'success',
+      )
+    } catch {
+      setPhase('idle')
+      toast('The import could not be completed. Please try again.', 'error')
+    }
   }
 
   function reset() {

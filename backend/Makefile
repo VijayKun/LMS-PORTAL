@@ -27,7 +27,7 @@ CPPFLAGS += -I$(SRCDIR) -I$(LIBDIR) -I$(PQ_DIR)/include
 CFLAGS   ?= -std=c11 -Wall -Wextra -O2 -g
 CFLAGS   += -MMD -MP
 LDFLAGS  += -L$(PQ_DIR)/lib
-LDLIBS   += -lpq -lcrypto -lws2_32
+             LDLIBS   += -lpq -lcrypto -lws2_32 -lwinhttp
 
 SRCS := \
   $(SRCDIR)/main.c \
@@ -63,6 +63,7 @@ SRCS := \
   $(SRCDIR)/services/notification_service.c \
   $(SRCDIR)/services/report_service.c \
   $(SRCDIR)/services/branch_service.c \
+  $(SRCDIR)/services/isbn_service.c \
   $(SRCDIR)/auth/session_store.c \
   $(SRCDIR)/middleware/auth_middleware.c \
   $(SRCDIR)/middleware/cors_middleware.c \
@@ -83,7 +84,7 @@ TEST_SRCS := tests/test_json_utils.c tests/test_books_json.c tests/test_book_ser
   tests/test_student_service.c tests/test_list_service.c tests/test_session_store.c \
   tests/test_json_parse.c tests/test_password.c tests/test_auth_service.c \
   tests/test_loan_service.c tests/test_reservation_service.c tests/test_fine_service.c \
-  tests/test_report_service.c
+  tests/test_report_service.c tests/test_isbn_service.c
 TEST_BINS := $(patsubst tests/%.c,build/%.exe,$(TEST_SRCS))
 
 .PHONY: all run test clean help
@@ -176,6 +177,11 @@ build/test_report_service.exe: tests/test_report_service.c \
   $(SRCDIR)/services/list_service.c \
   $(SRCDIR)/database/db.c \
   $(SRCDIR)/utils/json_utils.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+build/test_isbn_service.exe: tests/test_isbn_service.c \
+  $(SRCDIR)/services/isbn_service.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 

@@ -128,6 +128,9 @@ void config_load(ServerConfig *cfg, const char *env_path) {
   snprintf(cfg->cors_origin, sizeof(cfg->cors_origin), "%s",
            cfg_get("LMS_CORS_ALLOWED_ORIGIN", "http://localhost:5173"));
 
+  snprintf(cfg->google_books_api_key, sizeof(cfg->google_books_api_key), "%s",
+           cfg_get("LMS_GOOGLE_BOOKS_API_KEY", ""));
+
   snprintf(cfg->db.host, sizeof(cfg->db.host), "%s", cfg_get("LMS_DB_HOST", ""));
   snprintf(cfg->db.port, sizeof(cfg->db.port), "%s", cfg_get("LMS_DB_PORT", "5432"));
   snprintf(cfg->db.name, sizeof(cfg->db.name), "%s", cfg_get("LMS_DB_NAME", "postgres"));
@@ -162,6 +165,7 @@ void config_print(const ServerConfig *cfg) {
   printf("[config] %s v%s\n", LMS_BACKEND_NAME, LMS_BACKEND_VERSION);
   printf("[config] server      : http://%s:%s\n", cfg->host, cfg->port);
   printf("[config] cors origin : %s\n", cfg->cors_origin);
+  printf("[config] google books: %s\n", cfg->google_books_api_key[0] ? "(set)" : "(not set)");
   printf("[config] db host     : %s\n", cfg->db.host[0] ? cfg->db.host : "(not set)");
   printf("[config] db port     : %s\n", cfg->db.port);
   printf("[config] db name     : %s\n", cfg->db.name);

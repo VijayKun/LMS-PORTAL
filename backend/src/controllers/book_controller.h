@@ -19,6 +19,10 @@ void book_controller_get(AppContext *app, struct mg_connection *c,
 void book_controller_get_by_isbn(AppContext *app, struct mg_connection *c,
                                  const struct mg_http_message *hm, struct mg_str isbn);
 
+/** GET /api/books/lookup/:isbn - Google Books metadata for an ISBN. */
+void book_controller_lookup_isbn(AppContext *app, struct mg_connection *c,
+                                 const struct mg_http_message *hm, struct mg_str isbn);
+
 /** POST /api/books - create a book (a valid session is required). */
 void book_controller_create(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm);

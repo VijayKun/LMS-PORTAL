@@ -57,7 +57,7 @@ export default function BookForm({ mode }) {
     setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
-  /** Future ISBN API integration point (mock for now - see services/api.js). */
+  /** Fetches title/author/publisher/etc. for the ISBN from the backend proxy. */
   async function fetchByISBN() {
     if (!/^\d{10,13}$/.test(form.isbn.replace(/-/g, ''))) {
       setErrors((e) => ({ ...e, isbn: 'Enter a valid 10 or 13 digit ISBN first.' }))
@@ -65,20 +65,33 @@ export default function BookForm({ mode }) {
     }
     setLooking(true)
     setLookupMsg('')
-    const info = await lookupBookByISBN(form.isbn)
-    if (info.found) {
-      setForm((f) => ({
-        ...f,
-        title: info.title,
-        author: info.author,
-        category: info.category,
-        publisher: info.publisher,
-      }))
-      setLookupMsg('Details fetched from the book database (mock).')
-    } else {
-      setLookupMsg('No match found — please fill in the details manually.')
+    try {
+      const info = await lookupBookByISBN(form.isbn)
+      if (info.found) {
+        setForm((f) => ({
+          ...f,
+          title: info.title || f.title,
+          author: info.author || f.author,
+          category: info.category || f.category,
+          publisher: info.publisher || f.publisher,
+          publicationDate: info.publicationDate || f.publicationDate,
+          description: info.description || f.description,
+        }))
+        setLookupMsg(
+          info.source === 'google'
+            ? 'Details fetched from Google Books.'
+            : 'Details fetched from the local catalog (backend offline).',
+        )
+      } else {
+        setLookupMsg(
+          info.source === 'google'
+            ? 'No match found on Google Books — please fill in the details manually.'
+            : 'No match found — please fill in the details manually.',
+        )
+      }
+    } finally {
+      setLooking(false)
     }
-    setLooking(false)
   }
 
   function validate() {
@@ -233,8 +246,8 @@ export default function BookForm({ mode }) {
           )}
           <hr className="divider" />
           <div className="text-xs text-muted">
-            The <strong>Fetch</strong> button simulates the ISBN lookup API that will later return
-            title, author and publisher automatically.
+            The <strong>Fetch</strong> button looks the ISBN up on Google Books (via the backend)
+            and fills in the title, author, publisher, category and description.
           </div>
         </aside>
       </div>
