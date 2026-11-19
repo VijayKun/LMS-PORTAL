@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS students (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Existing databases created before student auth need the new column too.
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS password_hash text;
+
 -- ---- Staff (library admins) - password_hash is filled in by Milestone 3 ----
 
 CREATE TABLE IF NOT EXISTS admins (

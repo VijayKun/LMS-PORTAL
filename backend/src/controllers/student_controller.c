@@ -193,6 +193,7 @@ static bool parse_student_body(AppContext *app, struct mg_connection *c,
       {"contact", out->contact, sizeof(out->contact)},
       {"joined_date", out->joined_date, sizeof(out->joined_date)},
       {"status", out->status, sizeof(out->status)},
+      {"password", out->password, sizeof(out->password)},
   };
 
   for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {

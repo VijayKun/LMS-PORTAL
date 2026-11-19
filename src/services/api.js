@@ -15,11 +15,9 @@
  */
 import { mockBooks, mockStudents } from '../data/index.js'
 import { loginRequestSchema, importRowsSchema, parseWith } from '../validation/schemas.js'
+import { API_BASE } from './backend.js'
 
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
-
-/** Base URL of the C backend. Override with VITE_API_URL in production. */
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '')
 
 /** Simulated network latency for every mock call. */
 export async function simulatedLatency(ms) {

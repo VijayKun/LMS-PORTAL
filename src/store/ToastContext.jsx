@@ -53,3 +53,8 @@ export function useToast() {
   if (!ctx) throw new Error('useToast must be used inside <ToastProvider>')
   return ctx
 }
+
+/** Safe variant for providers that may be rendered without a ToastProvider. */
+export function useToastOptional() {
+  return useContext(ToastContext)
+}

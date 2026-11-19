@@ -106,4 +106,17 @@ typedef enum {
 ReservationReadyStatus reservation_service_ready(Database *db, const char *id,
                                                  char *errbuf, size_t errlen);
 
+typedef enum {
+  RESERVATION_SET_OK = 0,
+  RESERVATION_SET_NOT_FOUND,
+  RESERVATION_SET_BAD_INPUT,
+  RESERVATION_SET_DB_UNAVAILABLE,
+  RESERVATION_SET_QUERY_FAILED
+} ReservationSetStatus;
+
+/** Admin transition to an arbitrary valid status (ready/fulfilled/expired/waiting). */
+ReservationSetStatus reservation_service_set_status(Database *db, const char *id,
+                                                    const char *status, char *errbuf,
+                                                    size_t errlen);
+
 #endif /* LMS_RESERVATION_SERVICE_H */

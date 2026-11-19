@@ -226,6 +226,45 @@ ReservationCancelStatus reservation_service_cancel(Database *db, const char *id,
   return status;
 }
 
+ReservationSetStatus reservation_service_set_status(Database *db, const char *id,
+                                                    const char *status, char *errbuf,
+                                                    size_t errlen) {
+  if (id == NULL || id[0] == '\0' || status == NULL || status[0] == '\0') {
+    return RESERVATION_SET_BAD_INPUT;
+  }
+  if (strcmp(status, "waiting") != 0 && strcmp(status, "ready") != 0 &&
+      strcmp(status, "fulfilled") != 0 && strcmp(status, "expired") != 0) {
+    return RESERVATION_SET_BAD_INPUT;
+  }
+  if (!db_is_configured(db)) {
+    return RESERVATION_SET_DB_UNAVAILABLE;
+  }
+
+  char deadline[32] = "";
+  if (strcmp(status, "ready") == 0) {
+    format_day(current_day() + RESERVATION_PICKUP_DAYS, deadline, sizeof(deadline));
+  }
+
+  const char *params[3] = {id, status, deadline[0] ? deadline : NULL};
+  DbResult result;
+  if (!db_query(db,
+                "UPDATE public.reservations SET status = $2,"
+                " pickup_deadline = CASE WHEN $2 = 'ready' THEN $3 ELSE NULL END,"
+                " expected_availability = CASE WHEN $2 = 'ready' THEN NULL"
+                " ELSE expected_availability END"
+                " WHERE id = $1 RETURNING id",
+                params, 3, &result, errbuf, errlen)) {
+    return RESERVATION_SET_QUERY_FAILED;
+  }
+
+  ReservationSetStatus outcome = RESERVATION_SET_NOT_FOUND;
+  if (result.nrows == 1) {
+    outcome = RESERVATION_SET_OK;
+  }
+  db_result_free(&result);
+  return outcome;
+}
+
 ReservationReadyStatus reservation_service_ready(Database *db, const char *id,
                                                  char *errbuf, size_t errlen) {
   if (id == NULL || id[0] == '\0') {

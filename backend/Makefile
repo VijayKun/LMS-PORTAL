@@ -112,6 +112,7 @@ build/test_book_service.exe: tests/test_book_service.c \
 
 build/test_student_service.exe: tests/test_student_service.c \
   $(SRCDIR)/services/student_service.c \
+  $(SRCDIR)/security/password.c \
   $(SRCDIR)/database/db.c \
   $(SRCDIR)/utils/json_utils.c
 	@mkdir -p $(dir $@)

@@ -36,4 +36,13 @@ void reservation_controller_cancel(AppContext *app, struct mg_connection *c,
 void reservation_controller_ready(AppContext *app, struct mg_connection *c,
                                   const struct mg_http_message *hm, struct mg_str id);
 
+/**
+ * POST /api/reservations/:id/status - admin status transition.
+ * Body: {"status":"waiting"|"ready"|"fulfilled"|"expired"}.
+ * Replies 200 with the updated {"reservation":{...}}.
+ */
+void reservation_controller_set_status(AppContext *app, struct mg_connection *c,
+                                       const struct mg_http_message *hm,
+                                       struct mg_str id);
+
 #endif /* LMS_RESERVATION_CONTROLLER_H */

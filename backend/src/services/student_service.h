@@ -30,6 +30,7 @@ typedef struct {
   char contact[STUDENT_FIELD_MAX];
   char joined_date[STUDENT_FIELD_MAX]; /* YYYY-MM-DD or empty */
   char status[STUDENT_FIELD_MAX];      /* 'active' | 'suspended' or empty */
+  char password[STUDENT_FIELD_MAX];    /* cleartext only in transit; hashed before storage */
 } StudentMutate;
 
 typedef enum {

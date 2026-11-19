@@ -176,9 +176,9 @@ static void reply_with_loan_at(AppContext *app, struct mg_connection *c, int sta
 
 void loan_controller_issue(AppContext *app, struct mg_connection *c,
                            const struct mg_http_message *hm) {
-  Session *session = auth_require_admin(app, c, hm);
+  Session *session = auth_require(app, c, hm);
   if (session == NULL) {
-    return; /* auth_require already answered 401/403 */
+    return; /* auth_require already answered 401 */
   }
 
   if (hm->body.len == 0 || hm->body.len >= LOAN_BODY_MAX) {
@@ -208,6 +208,11 @@ void loan_controller_issue(AppContext *app, struct mg_connection *c,
           JSON_PARSE_ERROR) {
     send_json_error(c, 400, "invalid_body", "The request body could not be parsed.");
     return;
+  }
+
+  /* Students may only issue books to themselves; staff may issue for anyone. */
+  if (!auth_role_is_admin(session->role)) {
+    snprintf(input.student_id, sizeof(input.student_id), "%s", session->admin_id);
   }
 
   char idbuf[LOAN_ID_MAX];

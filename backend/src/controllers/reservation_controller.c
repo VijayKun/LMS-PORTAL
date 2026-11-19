@@ -310,6 +310,75 @@ void reservation_controller_cancel(AppContext *app, struct mg_connection *c,
   }
 }
 
+void reservation_controller_set_status(AppContext *app, struct mg_connection *c,
+                                       const struct mg_http_message *hm,
+                                       struct mg_str id) {
+  Session *session = auth_require_admin(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
+
+  char idbuf[RESERVATION_ID_MAX];
+  if (!copy_segment(idbuf, sizeof(idbuf), id)) {
+    send_json_error(c, 404, "not_found", "Reservation not found.");
+    return;
+  }
+
+  if (hm->body.len == 0 || hm->body.len >= RESERVATION_BODY_MAX) {
+    send_json_error(c, 400, "invalid_body", "A JSON body is required.");
+    return;
+  }
+
+  struct mg_str *content_type = mg_http_get_header(hm, "Content-Type");
+  if (content_type == NULL ||
+      mg_strcasecmp(*content_type, mg_str("application/json")) != 0) {
+    send_json_error(c, 415, "unsupported_media_type",
+                    "Content-Type must be application/json.");
+    return;
+  }
+
+  char body[RESERVATION_BODY_MAX];
+  memcpy(body, hm->body.buf, hm->body.len);
+  body[hm->body.len] = '\0';
+
+  char statusbuf[32];
+  if (json_get_string(body, "status", statusbuf, sizeof(statusbuf)) ==
+      JSON_PARSE_ERROR) {
+    send_json_error(c, 400, "invalid_body", "The request body could not be parsed.");
+    return;
+  }
+
+  char errbuf[256] = {0};
+  ReservationSetStatus status = reservation_service_set_status(
+      app ? app->db : NULL, idbuf, statusbuf, errbuf, sizeof(errbuf));
+
+  switch (status) {
+    case RESERVATION_SET_OK:
+      fprintf(stderr, "[reservations] status by '%s' (%s): id=%s status=%s\n",
+              session->admin_id, session->role, idbuf, statusbuf);
+      reply_with_reservation_at(app, c, 200, idbuf);
+      break;
+    case RESERVATION_SET_BAD_INPUT:
+      send_json_error(c, 400, "invalid_status",
+                      "Status must be waiting, ready, fulfilled, or expired.");
+      break;
+    case RESERVATION_SET_NOT_FOUND:
+      send_json_error(c, 404, "not_found", "Reservation not found.");
+      break;
+    case RESERVATION_SET_DB_UNAVAILABLE:
+      send_json_error(c, 503, "database_unavailable",
+                      "Reservations are temporarily unavailable.");
+      break;
+    case RESERVATION_SET_QUERY_FAILED:
+    default:
+      fprintf(stderr, "[reservations] status '%s' failed: %s\n", idbuf,
+              errbuf[0] ? errbuf : "(no details)");
+      send_json_error(c, 500, "database_error",
+                      "Could not update the reservation right now.");
+      break;
+  }
+}
+
 void reservation_controller_ready(AppContext *app, struct mg_connection *c,
                                   const struct mg_http_message *hm, struct mg_str id) {
   Session *session = auth_require_admin(app, c, hm);

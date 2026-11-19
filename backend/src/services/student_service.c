@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "security/password.h"
 #include "utils/json_utils.h"
 
 /*
@@ -236,8 +237,8 @@ static bool validate_student(const StudentMutate *b, bool require_basic, char *e
     }
   } else {
     const char *const fields[] = {
-        b->name, b->email, b->student_id,    b->branch,     b->program,
-        b->semester, b->contact, b->joined_date, b->status,
+        b->name, b->email, b->student_id,      b->branch, b->program,
+        b->semester, b->contact, b->joined_date, b->status, b->password,
     };
     bool any = false;
     for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
@@ -265,6 +266,13 @@ static bool validate_student(const StudentMutate *b, bool require_basic, char *e
     snprintf(errbuf, errlen, "invalid joined_date (expected YYYY-MM-DD)");
     return false;
   }
+  if (b->password[0] != '\0') {
+    size_t len = strlen(b->password);
+    if (len < 6 || len > 128) {
+      snprintf(errbuf, errlen, "password must be 6-128 characters");
+      return false;
+    }
+  }
   return true;
 }
 
@@ -272,9 +280,9 @@ static bool validate_student(const StudentMutate *b, bool require_basic, char *e
 #define STUDENT_INSERT_SQL                                                   \
   "INSERT INTO public.students"                                              \
   " (id, name, email, student_id, branch, program, semester, contact,"       \
-  "  joined_date, status)"                                                   \
-  " VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9)"    \
-  " RETURNING id"
+  "  joined_date, status, password_hash)"                                    \
+  " VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9,"    \
+  " $10) RETURNING id"
 
 StudentCreateStatus student_service_create(Database *db, const StudentMutate *student,
                                            char *id_out, size_t id_size, char *errbuf,
@@ -291,7 +299,14 @@ StudentCreateStatus student_service_create(Database *db, const StudentMutate *st
 
   /* Empty optional strings fall back to schema defaults; an empty
    * joined_date is passed as SQL NULL. */
-  const char *params[9];
+  char hash[PASSWORD_HASH_MAX] = "";
+  if (student->password[0] != '\0' &&
+      !password_hash(student->password, hash, sizeof(hash))) {
+    snprintf(errbuf, errlen, "password hashing failed");
+    return STUDENT_CREATE_BAD_INPUT;
+  }
+
+  const char *params[10];
   params[0] = student->name;
   params[1] = student->email;
   params[2] = student->student_id;
@@ -301,9 +316,10 @@ StudentCreateStatus student_service_create(Database *db, const StudentMutate *st
   params[6] = student->contact[0] ? student->contact : "";
   params[7] = student->joined_date[0] ? student->joined_date : NULL;
   params[8] = student->status[0] ? student->status : "active";
+  params[9] = hash[0] ? hash : NULL;
 
   DbResult result;
-  if (!db_query(db, STUDENT_INSERT_SQL, params, 9, &result, errbuf, errlen)) {
+  if (!db_query(db, STUDENT_INSERT_SQL, params, 10, &result, errbuf, errlen)) {
     if (db_has_sqlstate(errbuf, DB_SQLSTATE_UNIQUE_VIOLATION)) {
       return STUDENT_CREATE_DUPLICATE;
     }
@@ -333,10 +349,17 @@ StudentUpdateStatus student_service_update(Database *db, const char *id,
     return STUDENT_UPDATE_DB_UNAVAILABLE;
   }
 
+  char hash[PASSWORD_HASH_MAX] = "";
+  if (student->password[0] != '\0' &&
+      !password_hash(student->password, hash, sizeof(hash))) {
+    snprintf(errbuf, errlen, "password hashing failed");
+    return STUDENT_UPDATE_BAD_INPUT;
+  }
+
   char sql[1024];
   snprintf(sql, sizeof(sql), "UPDATE public.students SET");
 
-  const char *params[10];
+  const char *params[12];
   int nparams = 0;
 
 #define ADD_SET(col, field)                                                   \
@@ -357,6 +380,7 @@ StudentUpdateStatus student_service_update(Database *db, const char *id,
   ADD_SET("contact", student->contact);
   ADD_SET("joined_date", student->joined_date);
   ADD_SET("status", student->status);
+  ADD_SET("password_hash", hash);
 
 #undef ADD_SET
 

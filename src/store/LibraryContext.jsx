@@ -1,8 +1,18 @@
-import { createContext, useContext, useEffect, useReducer, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useReducer,
+  useState,
+} from 'react'
 import { createInitialData } from '../data/index.js'
 import { INSTITUTION_NAME } from '../data/settings.js'
 import { LOAN_PERIOD_DAYS, FINE_PER_DAY } from '../data/constants.js'
 import { daysBetween, todayISO, addDays } from '../utils/format.js'
+import { useAuthOptional } from './AuthContext.jsx'
+import { useToastOptional } from './ToastContext.jsx'
+import * as backend from '../services/backend.js'
 
 /**
  * ============================================================
@@ -119,6 +129,10 @@ function syncAvailability(books, transactions) {
 
 function reducer(state, action) {
   switch (action.type) {
+    /* Server data replaces the local demo data after a successful fetch. */
+    case 'hydrate':
+      return { ...state, ...action.data, _remote: true }
+
     /* ------------------ student actions ------------------ */
     case 'borrow': {
       const book = state.books.find((b) => b.id === action.bookId)
@@ -353,13 +367,69 @@ export function LibraryProvider({ children }) {
   const [booting, setBooting] = useState(true)
   const [syncing, setSyncing] = useState(0)
 
-  // Short simulated "fetch" so the app shows a real loading state on start.
-  useEffect(() => {
-    const timer = setTimeout(() => setBooting(false), 450)
-    return () => clearTimeout(timer)
+  const auth = useAuthOptional()
+  const toastCtx = useToastOptional()
+  const user = auth?.user ?? null
+  const backendAvailable = auth?.backendAvailable ?? null
+  const toast = toastCtx?.toast
+
+  const remote = Boolean(state._remote)
+
+  const track = useCallback((promise) => {
+    setSyncing((count) => count + 1)
+    return Promise.resolve(promise).finally(() => setSyncing((count) => count - 1))
   }, [])
 
+  /** Re-fetch the signed-in user's workspace and replace the local snapshot. */
+  const refreshFromBackend = useCallback(async () => {
+    if (!user || !backendAvailable) return false
+    try {
+      const data = await backend.fetchWorkspace(user)
+      dispatch({ type: 'hydrate', data })
+      return true
+    } catch (err) {
+      if (err.status === 401) {
+        toast?.('Your session expired. Please sign in again.', 'error')
+      } else {
+        toast?.(err.message || 'Could not load library data.', 'error')
+      }
+      return false
+    }
+  }, [user, backendAvailable, toast])
+
+  // Load the real workspace after sign-in; keep the offline demo if the API is down.
   useEffect(() => {
+    let cancelled = false
+    if (!user) {
+      const timer = setTimeout(() => {
+        if (!cancelled) setBooting(false)
+      }, 450)
+      return () => {
+        cancelled = true
+        clearTimeout(timer)
+      }
+    }
+    if (backendAvailable === null) return undefined
+    if (!backendAvailable) {
+      setBooting(false)
+      return undefined
+    }
+
+    setSyncing((count) => count + 1)
+    refreshFromBackend().finally(() => {
+      if (!cancelled) {
+        setBooting(false)
+        setSyncing((count) => count - 1)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user, backendAvailable, refreshFromBackend])
+
+  // Persist only the offline dataset; server data must not leak between users.
+  useEffect(() => {
+    if (state._remote) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     } catch {
@@ -367,46 +437,157 @@ export function LibraryProvider({ children }) {
     }
   }, [state])
 
+  // Drop the previous account's server data as soon as they sign out.
+  useEffect(() => {
+    if (!user && state._remote) dispatch({ type: 'resetData' })
+  }, [user, state._remote])
+
   /**
-   * Optimistic action tracking: the reducer has already committed the change
-   * (the UI updates instantly), and this keeps a "syncing" counter alive
-   * while the mock backend call is in flight. The topbar shows a subtle
-   * pill while the counter is > 0. When a real backend arrives, failures
-   * can be rolled back here without touching any page.
+   * Remote actions call the API and re-fetch the workspace. Offline/demo mode
+   * keeps the original local reducer so the frontend is still demo-able.
    */
-  const track = (promise) => {
-    setSyncing((count) => count + 1)
-    return Promise.resolve(promise).finally(() => setSyncing((count) => count - 1))
+  const runRemote = (remoteCall, localAction, failureMessage) => {
+    if (!remote) {
+      dispatch(localAction)
+      return
+    }
+    track(
+      (async () => {
+        try {
+          await remoteCall()
+          await refreshFromBackend()
+        } catch (err) {
+          toast?.(err.message || failureMessage, 'error')
+        }
+      })(),
+    )
   }
 
   /** Everything a page can do with the library data. */
   const actions = {
-    borrowBook: (studentId, bookId) => dispatch({ type: 'borrow', studentId, bookId }),
-    returnBook: (txId) => dispatch({ type: 'return', txId }),
-    reserveBook: (studentId, bookId) => dispatch({ type: 'reserve', studentId, bookId }),
-    cancelReservation: (reservationId) => dispatch({ type: 'cancelReservation', reservationId }),
+    borrowBook: (studentId, bookId) =>
+      runRemote(
+        () => backend.issueLoan(studentId, bookId),
+        { type: 'borrow', studentId, bookId },
+        'Could not issue this book.',
+      ),
+    returnBook: (txId) =>
+      runRemote(
+        () => backend.returnLoan(txId),
+        { type: 'return', txId },
+        'Could not return this book.',
+      ),
+    reserveBook: (studentId, bookId) =>
+      runRemote(
+        () => backend.createReservation(studentId, bookId),
+        { type: 'reserve', studentId, bookId },
+        'Could not create this reservation.',
+      ),
+    cancelReservation: (reservationId) =>
+      runRemote(
+        () => backend.cancelReservation(reservationId),
+        { type: 'cancelReservation', reservationId },
+        'Could not cancel this reservation.',
+      ),
     setReservationStatus: (reservationId, status) =>
-      dispatch({ type: 'setReservationStatus', reservationId, status }),
-    markNotificationRead: (id) => dispatch({ type: 'markNotificationRead', id }),
+      runRemote(
+        () => backend.setReservationStatus(reservationId, status),
+        { type: 'setReservationStatus', reservationId, status },
+        'Could not update this reservation.',
+      ),
+    markNotificationRead: (id) =>
+      runRemote(
+        () => backend.markNotificationRead(id),
+        { type: 'markNotificationRead', id },
+        'Could not update this notification.',
+      ),
     markAllNotificationsRead: (userId) =>
-      dispatch({ type: 'markAllNotificationsRead', userId }),
-    announce: (title, message) => dispatch({ type: 'announce', title, message }),
-    addBook: (book) => dispatch({ type: 'addBook', book }),
-    updateBook: (book) => dispatch({ type: 'updateBook', book }),
-    deleteBook: (bookId) => dispatch({ type: 'deleteBook', bookId }),
-    addStudent: (student) => dispatch({ type: 'addStudent', student }),
-    updateStudent: (student) => dispatch({ type: 'updateStudent', student }),
-    deleteStudent: (studentId) => dispatch({ type: 'deleteStudent', studentId }),
-    addBranch: (branch) => dispatch({ type: 'addBranch', branch }),
-    updateBranch: (branch) => dispatch({ type: 'updateBranch', branch }),
-    deleteBranch: (branchId) => dispatch({ type: 'deleteBranch', branchId }),
-    payFine: (fineId) => dispatch({ type: 'payFine', fineId }),
+      runRemote(
+        () => backend.markAllNotificationsRead(),
+        { type: 'markAllNotificationsRead', userId },
+        'Could not mark notifications as read.',
+      ),
+    announce: (title, message) =>
+      runRemote(
+        () => backend.createNotification({ type: 'announcement', title, message, userId: 'all' }),
+        { type: 'announce', title, message },
+        'Could not publish the announcement.',
+      ),
+    addBook: (book) =>
+      runRemote(
+        () => backend.createBook(book),
+        { type: 'addBook', book },
+        'Could not add this book.',
+      ),
+    updateBook: (book) =>
+      runRemote(
+        () => backend.updateBook(book),
+        { type: 'updateBook', book },
+        'Could not update this book.',
+      ),
+    deleteBook: (bookId) =>
+      runRemote(
+        () => backend.deleteBook(bookId),
+        { type: 'deleteBook', bookId },
+        'Could not delete this book.',
+      ),
+    addStudent: (student) =>
+      runRemote(
+        () => backend.createStudent(student),
+        { type: 'addStudent', student },
+        'Could not add this student.',
+      ),
+    updateStudent: (student) =>
+      runRemote(
+        () => backend.updateStudent(student),
+        { type: 'updateStudent', student },
+        'Could not update this student.',
+      ),
+    deleteStudent: (studentId) =>
+      runRemote(
+        () => backend.deleteStudent(studentId),
+        { type: 'deleteStudent', studentId },
+        'Could not delete this student.',
+      ),
+    addBranch: (branch) =>
+      runRemote(
+        () => backend.createBranch(branch),
+        { type: 'addBranch', branch },
+        'Could not add this branch.',
+      ),
+    updateBranch: (branch) =>
+      runRemote(
+        () => backend.updateBranch(branch),
+        { type: 'updateBranch', branch },
+        'Could not update this branch.',
+      ),
+    deleteBranch: (branchId) =>
+      runRemote(
+        () => backend.deleteBranch(branchId),
+        { type: 'deleteBranch', branchId },
+        'Could not delete this branch.',
+      ),
+    payFine: (fineId) =>
+      runRemote(
+        () => backend.payFine(fineId),
+        { type: 'payFine', fineId },
+        'Could not record this payment.',
+      ),
     updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
-    resetData: () => dispatch({ type: 'resetData' }),
+    resetData: () => {
+      if (remote) {
+        toast?.('Demo reset is only available while the backend is offline.', 'info')
+        return
+      }
+      dispatch({ type: 'resetData' })
+    },
+    refreshFromBackend,
   }
 
   return (
-    <LibraryContext.Provider value={{ state, booting, syncing, track, ...actions }}>
+    <LibraryContext.Provider
+      value={{ state, booting, syncing, track, remote, ...actions }}
+    >
       {children}
     </LibraryContext.Provider>
   )

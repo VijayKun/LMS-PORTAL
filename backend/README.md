@@ -3,15 +3,14 @@
 Backend for the college Library Management System. The frontend (React/Vite) is
 already deployed on Vercel; this service will provide the REST API.
 
-> **Current status - Milestone 3 (authentication + read-only catalog).**
-> The server boots and serves `GET /api/health`, the real catalog (books /
-> students / loans / reservations / fines / notifications) over Supabase
-> PostgreSQL (`libpq`), and **login/logout/current-user with server-side
-> sessions** (`scrypt` password hashing + HttpOnly session cookies with
-> absolute and idle timeouts). When the database is not configured (or the
-> connection fails) every database endpoint fails safely with
-> `503 database_unavailable`. Book/student CRUD, loan reservations and fines
-> computation are later milestones.
+> **Current status - feature-complete backend.**
+> The server boots and serves `GET /api/health`, authentication, the full
+> catalog and student directory, book/student/branch CRUD, issue/return with
+> overdue fine creation, reservations, fine payment, notifications and reports
+> over Supabase PostgreSQL (`libpq`). Login uses `scrypt` password hashing and
+> HttpOnly server-side sessions with absolute and idle timeouts. When the
+> database is not configured (or the connection fails) every database endpoint
+> fails safely with `503 database_unavailable`.
 
 ---
 
@@ -140,13 +139,27 @@ startup (shown as `(set)` / `(empty)`). **Never commit `.env`.**
 
 `db/schema.sql` defines the PostgreSQL (Supabase) tables: `branches`, `books`,
 `students`, `admins`, `transactions`, `reservations`, `fines` and
-`notifications`. It is idempotent (`CREATE TABLE IF NOT EXISTS`, no drops), so
-it is safe to re-run. Apply it once against the Supabase database:
+`notifications` (including `students.password_hash`). `db/seed.sql` loads the
+demo catalog, students, loans, reservations, fines and notifications.
+
+Both files are idempotent, so they are safe to re-run. Apply them once against
+the Supabase database:
 
 ```bash
 psql "host=db.<ref>.supabase.co port=5432 dbname=postgres user=postgres password=<pw> sslmode=require" \
-  -f db/schema.sql
+  -v ON_ERROR_STOP=1 -f db/schema.sql
+
+psql "host=db.<ref>.supabase.co port=5432 dbname=postgres user=postgres password=<pw> sslmode=require" \
+  -v ON_ERROR_STOP=1 -f db/seed.sql
 ```
+
+Demo logins from the seed:
+
+| Role | Identifier | Password |
+| --- | --- | --- |
+| Admin | `librarian@mitsgwalior.in` | `library123` |
+| Student | `vijay.verma@mitsgwl.ac.in` or `BTCS2601146` | `library123` |
+| Other students | their seed email or `student_id` | `student123` |
 
 The catalog column names in `books` mirror `BOOKS_SELECT_SQL` in
 `src/services/book_service.c` - keep the two in sync.
@@ -196,12 +209,12 @@ Press **Ctrl + C** to stop the server.
 
 | Method | Path | Status | Meaning |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/login` | `200` | `{"admin":{...},"expires_in":N}`; sets `lms_session` (HttpOnly, `SameSite=Lax`, `Max-Age=ttl`) |
-| `POST` | `/api/auth/login` | `400` | missing `email`/`password`, body too large, or malformed body |
-| `POST` | `/api/auth/login` | `401` | unknown email or wrong password (same generic message) |
+| `POST` | `/api/auth/login` | `200` | `{"user":{...},"expires_in":N}`; `identifier` accepts an admin email, student email or student ID; sets `lms_session` (HttpOnly, `SameSite=Lax`, `Max-Age=ttl`) |
+| `POST` | `/api/auth/login` | `400` | missing `identifier`/`password`, body too large, or malformed body |
+| `POST` | `/api/auth/login` | `401` | unknown identifier or wrong password (same generic message) |
 | `POST` | `/api/auth/login` | `503` | database not configured or unreachable |
 | `POST` | `/api/auth/logout` | `204` | destroys the session and clears the cookie |
-| `GET` | `/api/auth/me` | `200` | `{"admin":{...},"expires_in":N}` for the current session |
+| `GET` | `/api/auth/me` | `200` | `{"user":{...},"expires_in":N}` for the current session |
 | `GET` | `/api/auth/me` | `401` | no/invalid/expired session |
 | any | `/api/auth/*` | `405` | wrong method for that path |
 
@@ -214,7 +227,8 @@ cap applies via `LMS_SESSION_TTL_SECONDS`.
 
 Passwords are hashed with OpenSSL **scrypt** (`EVP_PBE_scrypt`, `N=16384 r=8
 p=1`, random 16-byte salt) and stored in `public.admins.password_hash` as
-`scrypt$N$r$p$salt_hex$key_hex`. To seed an admin password once:
+`scrypt$N$r$p$salt_hex$key_hex` (students use the same format). To generate a
+password hash for a new account:
 
 ```powershell
 .\build\lms_backend.exe hash "your-password"
@@ -267,8 +281,8 @@ p=1`, random 16-byte salt) and stored in `public.admins.password_hash` as
 | `PUT` | `/api/students/:id` | `400/401/404/409/503` | same error contract as `POST` |
 | `DELETE` | `/api/students/:id` | `200` | `{"ok":true}`; requires a valid session |
 | `DELETE` | `/api/students/:id` | `404` | `{"error":"not_found"}` when no such id |
-| `GET` | `/api/loans` | `200` | `{"loans":[...]}` with `student_id`/`book_id`/`status` filters, `limit`/`offset` |
-| `GET` | `/api/loans/:id` | `200/404/503` | `{"loan":{...}}` for one row |
+| `GET` | `/api/transactions` | `200` | `{"loans":[...]}` with `student_id`/`book_id`/`status` filters, `limit`/`offset` |
+| `GET` | `/api/transactions/:id` | `200/404/503` | `{"loan":{...}}` for one row |
 | `GET` | `/api/reservations` | `200` | `{"reservations":[...]}` with `student_id`/`book_id`/`status` filters |
 | `GET` | `/api/reservations/:id` | `200/404/503` | `{"reservation":{...}}` for one row |
 | `GET` | `/api/fines` | `200` | `{"fines":[...]}` with `student_id`/`status` filters |
@@ -281,8 +295,9 @@ p=1`, random 16-byte salt) and stored in `public.admins.password_hash` as
 | `POST` | `/api/transactions/:id/return` | `401/404/503` | no session or no issued loan with that id |
 | `POST` | `/api/reservations` | `201` | `{"reservation":{...}}`; place a reservation (JSON body: `student_id`, `book_id`) - session required |
 | `POST` | `/api/reservations` | `400/401/404/409/415/503` | duplicate active reservation, student/book missing |
-| `POST` | `/api/reservations/:id/ready` | `200` | `{"reservation":{...}}`; mark waiting reservation ready - session required |
+| `POST` | `/api/reservations/:id/ready` | `200` | `{"reservation":{...}}`; mark waiting reservation ready - admin required |
 | `POST` | `/api/reservations/:id/ready` | `401/404/503` | no waiting reservation |
+| `POST` | `/api/reservations/:id/status` | `200` | `{"reservation":{...}}`; admin transition to `waiting`, `ready`, `fulfilled` or `expired` |
 | `DELETE` | `/api/reservations/:id` | `200` | `{"ok":true}`; cancel waiting/ready reservation - session required |
 | `DELETE` | `/api/reservations/:id` | `401/404/503` | no active reservation |
 | `POST` | `/api/fines/:id/pay` | `200` | `{"ok":true}`; mark pending fine as paid - session required |
@@ -293,9 +308,9 @@ p=1`, random 16-byte salt) and stored in `public.admins.password_hash` as
 
 All list endpoints share the same pagination contract: filters are `$`-prefixed
 columns, `limit` (default `100`, max `500`) and `offset` clamp the result, and
-the response echoes `{"<key>":[...],"limit":L,"offset":O}`. Loans, fines and
-notifications are currently **read-only** rows - they become writable in
-Milestone 4.
+the response echoes `{"<key>":[...],"limit":L,"offset":O}`. Students only see
+their own loans, reservations, fines and notifications; admin sessions see the
+whole library.
 
 The book write endpoints reuse the same `BookMutate` body
 (`title, author, isbn, category, publisher, publication_date, description,
@@ -330,12 +345,13 @@ never returned to clients.
   `db/schema.sql` defines the database. Catalog search (`q`/`category`/
   `limit`/`offset`), `GET /api/books/isbn/:isbn` and `GET /api/students/:id` are
   also done.
-- **Milestone 3 (in progress)** - authentication is done (`security/password.c`,
-  `auth/session_store.c`, `auth_service`, `auth_middleware`, `/api/auth/*`).
-  Book and student CRUD are done (`book_service_*` / `student_service_*`,
-  `POST/PUT/DELETE` routes protected by `auth_require`, ISBN / email /
-  student_id conflicts as `409`, loan-reference and cascade rules honoured).
-  Remaining: loan/reservation/fine/notification write flows (Milestone 4).
+- **Milestone 3 (done)** - authentication, book/student/branch CRUD, issue and
+  return (with overdue fine creation), reservations, fine payment, notifications
+  and the overview report. Admin-only writes use `auth_require_admin`; students
+  may issue/return only their own loans, reserve books, pay-view their own fines
+  and read their own notifications. `db/seed.sql` provides demo data and logins.
+- **Next** - production deployment (HTTPS + `LMS_COOKIE_SECURE=1`), automated
+  fine accrual, scheduled due/overdue notifications and richer reports.
 
 ---
 

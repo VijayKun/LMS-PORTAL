@@ -24,6 +24,16 @@ bool reservation_routes_handle(AppContext *app, struct mg_connection *c,
     return true;
   }
 
+  /* POST /api/reservations/:id/status - admin transition. */
+  if (mg_match(hm->uri, mg_str("/api/reservations/*/status"), caps)) {
+    if (!method_is(hm, "POST")) {
+      send_json_error(c, 405, "method_not_allowed", "Use POST.");
+      return true;
+    }
+    reservation_controller_set_status(app, c, hm, caps[0]);
+    return true;
+  }
+
   bool is_item = mg_match(hm->uri, mg_str("/api/reservations/*"), caps);
   bool is_list = mg_match(hm->uri, mg_str("/api/reservations"), NULL);
 

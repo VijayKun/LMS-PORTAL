@@ -31,6 +31,7 @@ const BLANK_STUDENT = {
   contact: '',
   joinedDate: '2026-10-07',
   status: 'active',
+  password: '',
 }
 
 /** Academic year derived from the semester count (2 semesters = 1 year). */
@@ -117,6 +118,8 @@ export default function StudentManagement() {
     else if (state.students.some((s) => s.studentId.toLowerCase() === form.studentId.trim().toLowerCase()))
       errs.studentId = 'This student ID already exists.'
     if (!/^[+\d][\d\s-]{7,}$/.test(form.contact)) errs.contact = 'Valid contact number is required.'
+    if (!form.password || form.password.length < 6)
+      errs.password = 'Initial password must be at least 6 characters.'
     setErrors(errs)
     if (Object.keys(errs).length) return
 
@@ -334,6 +337,16 @@ export default function StudentManagement() {
               </Select>
             </Field>
           </div>
+          <Field label="Initial Password" required error={errors.password}>
+            <Input
+              type="password"
+              value={form.password}
+              error={errors.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
+            />
+          </Field>
         </form>
       </Modal>
 
