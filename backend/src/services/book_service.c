@@ -14,8 +14,9 @@
  * title. If your Supabase "public.books" table uses different column names,
  * this is the ONE place to adjust them.
  */
-#define BOOK_COLUMNS \
-  "id, title, author, isbn, category, publisher, total_copies, available_copies"
+#define BOOK_COLUMNS                                                                    \
+  "id, title, author, isbn, category, publisher, publication_date, description, cover, " \
+  "year, branch_id, total_copies, available_copies"
 
 /* Same columns as the catalog list, restricted to one row. */
 #define BOOK_BY_ID_SQL \

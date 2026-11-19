@@ -26,6 +26,16 @@ Session *auth_require(AppContext *app, struct mg_connection *c,
                       const struct mg_http_message *hm);
 
 /**
+ * Resolve a session and require an administrative role. Non-admin sessions
+ * receive 403. Returns NULL after answering the request.
+ */
+Session *auth_require_admin(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm);
+
+/** @return true when role is admin or librarian. */
+bool auth_role_is_admin(const char *role);
+
+/**
  * Extract the bearer token from the request: either the `lms_session` cookie or
  * an `Authorization: Bearer <token>` header (header wins).
  *

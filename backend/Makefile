@@ -43,6 +43,7 @@ SRCS := \
   $(SRCDIR)/routes/fine_routes.c \
   $(SRCDIR)/routes/notification_routes.c \
   $(SRCDIR)/routes/report_routes.c \
+  $(SRCDIR)/routes/branch_routes.c \
   $(SRCDIR)/controllers/auth_controller.c \
   $(SRCDIR)/controllers/book_controller.c \
   $(SRCDIR)/controllers/student_controller.c \
@@ -51,6 +52,7 @@ SRCS := \
   $(SRCDIR)/controllers/fine_controller.c \
   $(SRCDIR)/controllers/notification_controller.c \
   $(SRCDIR)/controllers/report_controller.c \
+  $(SRCDIR)/controllers/branch_controller.c \
   $(SRCDIR)/services/list_service.c \
   $(SRCDIR)/services/auth_service.c \
   $(SRCDIR)/services/book_service.c \
@@ -60,6 +62,7 @@ SRCS := \
   $(SRCDIR)/services/fine_service.c \
   $(SRCDIR)/services/notification_service.c \
   $(SRCDIR)/services/report_service.c \
+  $(SRCDIR)/services/branch_service.c \
   $(SRCDIR)/auth/session_store.c \
   $(SRCDIR)/middleware/auth_middleware.c \
   $(SRCDIR)/middleware/cors_middleware.c \
@@ -169,6 +172,8 @@ build/test_fine_service.exe: tests/test_fine_service.c \
 
 build/test_report_service.exe: tests/test_report_service.c \
   $(SRCDIR)/services/report_service.c \
+  $(SRCDIR)/services/branch_service.c \
+  $(SRCDIR)/services/list_service.c \
   $(SRCDIR)/database/db.c \
   $(SRCDIR)/utils/json_utils.c
 	@mkdir -p $(dir $@)

@@ -28,4 +28,11 @@ void cors_headers(char *buf, size_t buf_size);
  */
 bool cors_handle_preflight(struct mg_connection *c, const struct mg_http_message *hm);
 
+/**
+ * Check a state-changing request's Origin against the configured origin.
+ * Requests without an Origin header (curl, native clients) are allowed; browser
+ * writes from any other origin are rejected.
+ */
+bool cors_write_allowed(const struct mg_http_message *hm);
+
 #endif /* LMS_CORS_MIDDLEWARE_H */

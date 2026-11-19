@@ -54,6 +54,10 @@ static void send_list_status(struct mg_connection *c, ListStatus status, const c
 
 void loan_controller_list(AppContext *app, struct mg_connection *c,
                           const struct mg_http_message *hm) {
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
   LoanListQuery query = {0};
   char sbuf[128];
   char bbuf[128];
@@ -62,6 +66,9 @@ void loan_controller_list(AppContext *app, struct mg_connection *c,
 
   if (mg_http_get_var(&hm->query, "student_id", sbuf, sizeof(sbuf)) >= 0) {
     query.student_id = sbuf;
+  }
+  if (!auth_role_is_admin(session->role)) {
+    query.student_id = session->admin_id;
   }
   if (mg_http_get_var(&hm->query, "book_id", bbuf, sizeof(bbuf)) >= 0) {
     query.book_id = bbuf;
@@ -102,12 +109,34 @@ static bool copy_segment(char *dst, size_t dst_size, struct mg_str seg) {
 
 void loan_controller_get(AppContext *app, struct mg_connection *c,
                          const struct mg_http_message *hm, struct mg_str id) {
-  (void)hm;
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
 
   char idbuf[LOAN_ID_MAX];
   if (!copy_segment(idbuf, sizeof(idbuf), id)) {
     send_json_error(c, 404, "not_found", "Loan not found.");
     return;
+  }
+
+  if (!auth_role_is_admin(session->role)) {
+    char owner[LOAN_ID_MAX];
+    char owner_err[256] = {0};
+    LoanOwnerStatus owner_status =
+        loan_service_get_owner(app ? app->db : NULL, idbuf, owner, sizeof(owner), owner_err,
+                               sizeof(owner_err));
+    if (owner_status != LOAN_OWNER_OK) {
+      send_json_error(c, owner_status == LOAN_OWNER_DB_UNAVAILABLE ? 503 : 404,
+                      owner_status == LOAN_OWNER_DB_UNAVAILABLE ? "database_unavailable"
+                                                                : "not_found",
+                      "Loan not found.");
+      return;
+    }
+    if (strcmp(owner, session->admin_id) != 0) {
+      send_json_error(c, 403, "forbidden", "You may only view your own loans.");
+      return;
+    }
   }
 
   char *buffer = malloc(LOAN_JSON_BUFFER_SIZE);
@@ -147,9 +176,9 @@ static void reply_with_loan_at(AppContext *app, struct mg_connection *c, int sta
 
 void loan_controller_issue(AppContext *app, struct mg_connection *c,
                            const struct mg_http_message *hm) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
-    return; /* auth_require already answered 401 */
+    return; /* auth_require already answered 401/403 */
   }
 
   if (hm->body.len == 0 || hm->body.len >= LOAN_BODY_MAX) {
@@ -227,6 +256,25 @@ void loan_controller_return(AppContext *app, struct mg_connection *c,
   if (!copy_segment(idbuf, sizeof(idbuf), id)) {
     send_json_error(c, 404, "not_found", "Loan not found.");
     return;
+  }
+
+  if (!auth_role_is_admin(session->role)) {
+    char owner[LOAN_ID_MAX];
+    char owner_err[256] = {0};
+    LoanOwnerStatus owner_status =
+        loan_service_get_owner(app ? app->db : NULL, idbuf, owner, sizeof(owner), owner_err,
+                               sizeof(owner_err));
+    if (owner_status != LOAN_OWNER_OK) {
+      send_json_error(c, owner_status == LOAN_OWNER_DB_UNAVAILABLE ? 503 : 404,
+                      owner_status == LOAN_OWNER_DB_UNAVAILABLE ? "database_unavailable"
+                                                                : "not_found",
+                      "No issued loan with that id.");
+      return;
+    }
+    if (strcmp(owner, session->admin_id) != 0) {
+      send_json_error(c, 403, "forbidden", "You may only return your own loans.");
+      return;
+    }
   }
 
   double fine = 0.0;

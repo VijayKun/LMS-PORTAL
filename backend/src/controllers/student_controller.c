@@ -29,6 +29,12 @@
 
 void student_controller_list(AppContext *app, struct mg_connection *c,
                              const struct mg_http_message *hm) {
+  Session *session = auth_require_admin(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
+  (void)session;
+
   StudentListQuery query = {0};
   char qbuf[128];
   char branchbuf[128];
@@ -87,7 +93,10 @@ void student_controller_list(AppContext *app, struct mg_connection *c,
 
 void student_controller_get(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm, struct mg_str id) {
-  (void)hm;
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
 
   if (id.len == 0 || id.len >= STUDENT_ID_MAX) {
     send_json_error(c, 404, "not_found", "Student not found.");
@@ -96,6 +105,10 @@ void student_controller_get(AppContext *app, struct mg_connection *c,
   char idbuf[STUDENT_ID_MAX];
   memcpy(idbuf, id.buf, id.len);
   idbuf[id.len] = '\0';
+  if (!auth_role_is_admin(session->role) && strcmp(idbuf, session->admin_id) != 0) {
+    send_json_error(c, 403, "forbidden", "You may only view your own profile.");
+    return;
+  }
 
   char *buffer = malloc(STUDENT_JSON_BUFFER_SIZE);
   if (buffer == NULL) {
@@ -216,7 +229,7 @@ static void reply_with_student(AppContext *app, struct mg_connection *c, int sta
 
 void student_controller_create(AppContext *app, struct mg_connection *c,
                                const struct mg_http_message *hm) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }
@@ -259,7 +272,7 @@ void student_controller_create(AppContext *app, struct mg_connection *c,
 
 void student_controller_update(AppContext *app, struct mg_connection *c,
                                const struct mg_http_message *hm, struct mg_str id) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }
@@ -313,7 +326,7 @@ void student_controller_update(AppContext *app, struct mg_connection *c,
 
 void student_controller_delete(AppContext *app, struct mg_connection *c,
                                const struct mg_http_message *hm, struct mg_str id) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }

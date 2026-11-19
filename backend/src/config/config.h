@@ -36,6 +36,7 @@ typedef struct {
   long session_ttl_seconds;      /* absolute session lifetime (<=0 = never) */
   long session_ttl_idle_seconds; /* idle timeout (<=0 = never) */
   bool cookie_secure;            /* add 'Secure' to the session cookie */
+  char cookie_same_site[16];     /* Strict, Lax, or None */
 } ServerConfig;
 
 /**

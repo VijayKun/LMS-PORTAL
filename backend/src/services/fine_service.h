@@ -36,6 +36,17 @@ ListStatus fine_service_get(Database *db, const char *id, char *out, size_t out_
                             char *errbuf, size_t errlen);
 
 typedef enum {
+  FINE_OWNER_OK = 0,
+  FINE_OWNER_NOT_FOUND,
+  FINE_OWNER_DB_UNAVAILABLE,
+  FINE_OWNER_QUERY_FAILED
+} FineOwnerStatus;
+
+/** Resolve the student id that owns a fine, for self-authorization. */
+FineOwnerStatus fine_service_get_owner(Database *db, const char *id, char *out,
+                                       size_t out_size, char *errbuf, size_t errlen);
+
+typedef enum {
   FINE_PAY_OK = 0,          /* marked 'paid' with today's date */
   FINE_PAY_NOT_FOUND,       /* no pending fine with this id */
   FINE_PAY_BAD_INPUT,       /* empty id */

@@ -15,6 +15,8 @@
 
 #include "middleware/cors_middleware.h"
 #include "routes/auth_routes.h"
+#include "routes/branch_routes.h"
+#include "routes/branch_routes.h"
 #include "routes/book_routes.h"
 #include "routes/fine_routes.h"
 #include "routes/health_routes.h"
@@ -39,6 +41,10 @@ static void dispatch(struct mg_connection *c, const struct mg_http_message *hm) 
   if (cors_handle_preflight(c, hm)) {
     return;
   }
+  if (!cors_write_allowed(hm)) {
+    send_json_error(c, 403, "forbidden_origin", "This origin may not modify data.");
+    return;
+  }
   if (health_routes_handle(app, c, hm)) {
     return;
   }
@@ -61,6 +67,9 @@ static void dispatch(struct mg_connection *c, const struct mg_http_message *hm) 
     return;
   }
   if (notification_routes_handle(app, c, hm)) {
+    return;
+  }
+  if (branch_routes_handle(app, c, hm)) {
     return;
   }
   if (report_routes_handle(app, c, hm)) {

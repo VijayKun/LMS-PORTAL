@@ -56,6 +56,10 @@ static void send_list_status(struct mg_connection *c, ListStatus status, const c
 
 void reservation_controller_list(AppContext *app, struct mg_connection *c,
                                  const struct mg_http_message *hm) {
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
   ReservationListQuery query = {0};
   char sbuf[128];
   char bbuf[128];
@@ -64,6 +68,9 @@ void reservation_controller_list(AppContext *app, struct mg_connection *c,
 
   if (mg_http_get_var(&hm->query, "student_id", sbuf, sizeof(sbuf)) >= 0) {
     query.student_id = sbuf;
+  }
+  if (!auth_role_is_admin(session->role)) {
+    query.student_id = session->admin_id;
   }
   if (mg_http_get_var(&hm->query, "book_id", bbuf, sizeof(bbuf)) >= 0) {
     query.book_id = bbuf;
@@ -104,12 +111,34 @@ static bool copy_segment(char *dst, size_t dst_size, struct mg_str seg) {
 
 void reservation_controller_get(AppContext *app, struct mg_connection *c,
                                 const struct mg_http_message *hm, struct mg_str id) {
-  (void)hm;
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
 
   char idbuf[RESERVATION_ID_MAX];
   if (!copy_segment(idbuf, sizeof(idbuf), id)) {
     send_json_error(c, 404, "not_found", "Reservation not found.");
     return;
+  }
+
+  if (!auth_role_is_admin(session->role)) {
+    char owner[RESERVATION_ID_MAX];
+    char owner_err[256] = {0};
+    ReservationOwnerStatus owner_status = reservation_service_get_owner(
+        app ? app->db : NULL, idbuf, owner, sizeof(owner), owner_err, sizeof(owner_err));
+    if (owner_status != RESERVATION_OWNER_OK) {
+      send_json_error(c, owner_status == RESERVATION_OWNER_DB_UNAVAILABLE ? 503 : 404,
+                      owner_status == RESERVATION_OWNER_DB_UNAVAILABLE
+                          ? "database_unavailable"
+                          : "not_found",
+                      "Reservation not found.");
+      return;
+    }
+    if (strcmp(owner, session->admin_id) != 0) {
+      send_json_error(c, 403, "forbidden", "You may only view your own reservations.");
+      return;
+    }
   }
 
   char *buffer = malloc(RESERVATION_JSON_BUFFER_SIZE);
@@ -183,6 +212,10 @@ void reservation_controller_create(AppContext *app, struct mg_connection *c,
     return;
   }
 
+  if (!auth_role_is_admin(session->role)) {
+    snprintf(input.student_id, sizeof(input.student_id), "%s", session->admin_id);
+  }
+
   char idbuf[RESERVATION_ID_MAX];
   char errbuf[256] = {0};
   ReservationCreateStatus status =
@@ -231,6 +264,25 @@ void reservation_controller_cancel(AppContext *app, struct mg_connection *c,
     return;
   }
 
+  if (!auth_role_is_admin(session->role)) {
+    char owner[RESERVATION_ID_MAX];
+    char owner_err[256] = {0};
+    ReservationOwnerStatus owner_status = reservation_service_get_owner(
+        app ? app->db : NULL, idbuf, owner, sizeof(owner), owner_err, sizeof(owner_err));
+    if (owner_status != RESERVATION_OWNER_OK) {
+      send_json_error(c, owner_status == RESERVATION_OWNER_DB_UNAVAILABLE ? 503 : 404,
+                      owner_status == RESERVATION_OWNER_DB_UNAVAILABLE
+                          ? "database_unavailable"
+                          : "not_found",
+                      "No active reservation with that id.");
+      return;
+    }
+    if (strcmp(owner, session->admin_id) != 0) {
+      send_json_error(c, 403, "forbidden", "You may only cancel your own reservations.");
+      return;
+    }
+  }
+
   char errbuf[256] = {0};
   ReservationCancelStatus status =
       reservation_service_cancel(app ? app->db : NULL, idbuf, errbuf, sizeof(errbuf));
@@ -260,7 +312,7 @@ void reservation_controller_cancel(AppContext *app, struct mg_connection *c,
 
 void reservation_controller_ready(AppContext *app, struct mg_connection *c,
                                   const struct mg_http_message *hm, struct mg_str id) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }

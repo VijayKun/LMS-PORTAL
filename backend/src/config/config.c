@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define MAX_ENV_ENTRIES 64
 #define MAX_LINE 512
@@ -141,6 +142,16 @@ void config_load(ServerConfig *cfg, const char *env_path) {
   const char *secure = cfg_get("LMS_COOKIE_SECURE", "0");
   cfg->cookie_secure = (strcmp(secure, "1") == 0 || strcmp(secure, "true") == 0 ||
                         strcmp(secure, "yes") == 0);
+
+  const char *same_site = cfg_get("LMS_COOKIE_SAME_SITE", "Lax");
+  if (strcasecmp(same_site, "None") == 0) {
+    snprintf(cfg->cookie_same_site, sizeof(cfg->cookie_same_site), "None");
+    cfg->cookie_secure = true; /* browsers reject SameSite=None without Secure */
+  } else if (strcasecmp(same_site, "Strict") == 0) {
+    snprintf(cfg->cookie_same_site, sizeof(cfg->cookie_same_site), "Strict");
+  } else {
+    snprintf(cfg->cookie_same_site, sizeof(cfg->cookie_same_site), "Lax");
+  }
 }
 
 void config_print(const ServerConfig *cfg) {
@@ -157,7 +168,7 @@ void config_print(const ServerConfig *cfg) {
   printf("[config] db user     : %s\n", cfg->db.user[0] ? cfg->db.user : "(not set)");
   printf("[config] db password : %s\n", cfg->db.password[0] ? "(set)" : "(empty)");
   printf("[config] db sslmode  : %s\n", cfg->db.sslmode);
-  printf("[config] session ttl : %lds absolute, %lds idle; cookie secure=%s\n",
+  printf("[config] session ttl : %lds absolute, %lds idle; cookie secure=%s same_site=%s\n",
          cfg->session_ttl_seconds, cfg->session_ttl_idle_seconds,
-         cfg->cookie_secure ? "yes" : "no");
+         cfg->cookie_secure ? "yes" : "no", cfg->cookie_same_site);
 }

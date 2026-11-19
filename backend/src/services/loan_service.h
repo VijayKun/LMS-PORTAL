@@ -54,6 +54,19 @@ ListStatus loan_service_get(Database *db, const char *id, char *out, size_t out_
                             char *errbuf, size_t errlen);
 
 typedef enum {
+  LOAN_OWNER_OK = 0,
+  LOAN_OWNER_NOT_FOUND,
+  LOAN_OWNER_DB_UNAVAILABLE,
+  LOAN_OWNER_QUERY_FAILED
+} LoanOwnerStatus;
+
+/**
+ * Resolve the student id that owns a loan, used for student self-authorization.
+ */
+LoanOwnerStatus loan_service_get_owner(Database *db, const char *id, char *out,
+                                       size_t out_size, char *errbuf, size_t errlen);
+
+typedef enum {
   LOAN_ISSUE_OK = 0,
   LOAN_ISSUE_BAD_INPUT,          /* missing ids or an invalid due date */
   LOAN_ISSUE_BOOK_NOT_FOUND,     /* the book does not exist */

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "middleware/auth_middleware.h"
 #include "services/report_service.h"
 #include "utils/response_utils.h"
 
@@ -21,7 +22,11 @@
 
 void report_controller_get(AppContext *app, struct mg_connection *c,
                            const struct mg_http_message *hm, struct mg_str type) {
-  (void)hm;
+  Session *session = auth_require_admin(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
+  (void)session;
 
   char typebuf[REPORT_TYPE_MAX];
   if (type.len == 0 || type.len >= sizeof(typebuf)) {

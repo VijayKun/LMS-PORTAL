@@ -49,6 +49,10 @@ static void send_list_status(struct mg_connection *c, ListStatus status, const c
 
 void fine_controller_list(AppContext *app, struct mg_connection *c,
                           const struct mg_http_message *hm) {
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
   FineListQuery query = {0};
   char sbuf[128];
   char statbuf[64];
@@ -56,6 +60,9 @@ void fine_controller_list(AppContext *app, struct mg_connection *c,
 
   if (mg_http_get_var(&hm->query, "student_id", sbuf, sizeof(sbuf)) >= 0) {
     query.student_id = sbuf;
+  }
+  if (!auth_role_is_admin(session->role)) {
+    query.student_id = session->admin_id;
   }
   if (mg_http_get_var(&hm->query, "status", statbuf, sizeof(statbuf)) >= 0) {
     query.status = statbuf;
@@ -93,12 +100,34 @@ static bool copy_segment(char *dst, size_t dst_size, struct mg_str seg) {
 
 void fine_controller_get(AppContext *app, struct mg_connection *c,
                          const struct mg_http_message *hm, struct mg_str id) {
-  (void)hm;
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return;
+  }
 
   char idbuf[FINE_ID_MAX];
   if (!copy_segment(idbuf, sizeof(idbuf), id)) {
     send_json_error(c, 404, "not_found", "Fine not found.");
     return;
+  }
+
+  if (!auth_role_is_admin(session->role)) {
+    char owner[FINE_ID_MAX];
+    char owner_err[256] = {0};
+    FineOwnerStatus owner_status =
+        fine_service_get_owner(app ? app->db : NULL, idbuf, owner, sizeof(owner), owner_err,
+                               sizeof(owner_err));
+    if (owner_status != FINE_OWNER_OK) {
+      send_json_error(c, owner_status == FINE_OWNER_DB_UNAVAILABLE ? 503 : 404,
+                      owner_status == FINE_OWNER_DB_UNAVAILABLE ? "database_unavailable"
+                                                                : "not_found",
+                      "Fine not found.");
+      return;
+    }
+    if (strcmp(owner, session->admin_id) != 0) {
+      send_json_error(c, 403, "forbidden", "You may only view your own fines.");
+      return;
+    }
   }
 
   char *buffer = malloc(FINE_JSON_BUFFER_SIZE);
@@ -118,7 +147,7 @@ void fine_controller_get(AppContext *app, struct mg_connection *c,
 
 void fine_controller_pay(AppContext *app, struct mg_connection *c,
                          const struct mg_http_message *hm, struct mg_str id) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }

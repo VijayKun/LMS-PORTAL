@@ -261,7 +261,7 @@ static void reply_with_book(AppContext *app, struct mg_connection *c, int status
 
 void book_controller_create(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }
@@ -302,7 +302,7 @@ void book_controller_create(AppContext *app, struct mg_connection *c,
 
 void book_controller_update(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm, struct mg_str id) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }
@@ -352,7 +352,7 @@ void book_controller_update(AppContext *app, struct mg_connection *c,
 
 void book_controller_delete(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm, struct mg_str id) {
-  Session *session = auth_require(app, c, hm);
+  Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) {
     return; /* auth_require already answered 401 */
   }

@@ -93,3 +93,19 @@ Session *auth_require(AppContext *app, struct mg_connection *c,
   }
   return session;
 }
+bool auth_role_is_admin(const char *role) {
+  return role != NULL && (strcmp(role, "admin") == 0 || strcmp(role, "librarian") == 0);
+}
+
+Session *auth_require_admin(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm) {
+  Session *session = auth_require(app, c, hm);
+  if (session == NULL) {
+    return NULL;
+  }
+  if (!auth_role_is_admin(session->role)) {
+    send_json_error(c, 403, "forbidden", "Administrator access is required.");
+    return NULL;
+  }
+  return session;
+}

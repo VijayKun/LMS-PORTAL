@@ -37,6 +37,34 @@ ListStatus loan_service_get(Database *db, const char *id, char *out, size_t out_
                           LOAN_SPEC.response_key, out, out_size, errbuf, errlen);
 }
 
+LoanOwnerStatus loan_service_get_owner(Database *db, const char *id, char *out,
+                                       size_t out_size, char *errbuf, size_t errlen) {
+  if (id == NULL || id[0] == '\0' || out == NULL || out_size == 0) {
+    return LOAN_OWNER_NOT_FOUND;
+  }
+  const char *params[1] = {id};
+  DbResult result;
+  memset(&result, 0, sizeof(result));
+  char db_err[256] = {0};
+  if (!db_query(db, "SELECT student_id FROM public.transactions WHERE id = $1 LIMIT 1", params,
+                1, &result, db_err, sizeof(db_err))) {
+    db_result_free(&result);
+    if (db == NULL || !db->connected) {
+      return LOAN_OWNER_DB_UNAVAILABLE;
+    }
+    snprintf(errbuf, errlen, "%s", db_err);
+    return LOAN_OWNER_QUERY_FAILED;
+  }
+  if (result.nrows == 0) {
+    db_result_free(&result);
+    return LOAN_OWNER_NOT_FOUND;
+  }
+  const char *owner = result.values[0];
+  snprintf(out, out_size, "%s", owner == NULL ? "" : owner);
+  db_result_free(&result);
+  return LOAN_OWNER_OK;
+}
+
 /* ---- Date helpers (UTC civil calendrics, no timezone dependencies) ------ */
 
 /* Days since 1970-01-01 for a proleptic Gregorian (y, m, d). Algorithm after

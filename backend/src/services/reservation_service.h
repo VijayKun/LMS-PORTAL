@@ -53,6 +53,18 @@ typedef struct {
 } ReservationInput;
 
 typedef enum {
+  RESERVATION_OWNER_OK = 0,
+  RESERVATION_OWNER_NOT_FOUND,
+  RESERVATION_OWNER_DB_UNAVAILABLE,
+  RESERVATION_OWNER_QUERY_FAILED
+} ReservationOwnerStatus;
+
+/** Resolve the student id that owns a reservation, for self-authorization. */
+ReservationOwnerStatus reservation_service_get_owner(Database *db, const char *id, char *out,
+                                                     size_t out_size, char *errbuf,
+                                                     size_t errlen);
+
+typedef enum {
   RESERVATION_CREATE_OK = 0,
   RESERVATION_CREATE_BAD_INPUT,    /* missing ids */
   RESERVATION_CREATE_DUPLICATE,    /* student already waiting on this book */
