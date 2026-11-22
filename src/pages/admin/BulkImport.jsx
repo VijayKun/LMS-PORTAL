@@ -161,21 +161,25 @@ export default function BulkImport() {
       const ready = enriched.filter((r) => r.initial === 'ready')
       // Validated again with zod at the API boundary before the "request".
       await importBooksRequest(ready)
-      ready.forEach((r, i) =>
+      if (!Array.isArray(ready)) {
+        throw new Error('Import returned unexpected format')
+      }
+      ready.forEach((r, i) => {
+        if (!r) return
         addBook({
-          title: r.title,
-          author: r.author,
-          isbn: r.isbn,
-          category: r.category,
-          publisher: r.publisher,
+          title: r.title || '',
+          author: r.author || '',
+          isbn: r.isbn || '',
+          category: r.category || 'General',
+          publisher: r.publisher || '',
           publicationDate: r.publicationDate || '',
           description: r.description || '',
           cover: r.cover || COVER_COLORS[i % COVER_COLORS.length],
-          totalCopies: r.copies,
-          availableCopies: r.copies,
-          branchId: r.branchId,
-        }),
-      )
+          totalCopies: r.copies || 1,
+          availableCopies: r.copies || 1,
+          branchId: r.branchId || null,
+        })
+      })
 
       const failedCount = enriched.filter((r) => r.result === 'failed').length
       const skippedCount = enriched.filter((r) => r.result === 'skipped').length
