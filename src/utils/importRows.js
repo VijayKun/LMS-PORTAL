@@ -72,8 +72,14 @@ export function buildImportRows(table, { existingBooks = [], branches = [] } = {
     throw new Error('The file has no data rows below the header.')
   }
   const header = mapHeaders(table[0])
-  if (header.title === undefined || header.isbn === undefined) {
-    throw new Error('Missing required columns. Expected headers like: Book Name, ISBN, Copies, Branch.')
+  const detectedHeaders = table[0].map(h => String(h || '').trim())
+  const normalizedDetected = detectedHeaders.map(normalize)
+  const hasTitle = normalizedDetected.some(h => ['bookname', 'title', 'book', 'name', 'booktitle'].includes(h))
+  const hasIsbn = normalizedDetected.some(h => ['isbn', 'isbn13', 'isbn10'].includes(h))
+
+  if (!hasTitle || !hasIsbn) {
+    const missing = [!hasTitle ? 'Book Name/Title' : null, !hasIsbn ? 'ISBN' : null].filter(Boolean).join(' and ')
+    throw new Error(`Missing required columns: ${missing}. Found: ${detectedHeaders.join(', ') || '(empty)'}. Expected: Book Name (or Title) and ISBN (or ISBN13/ISBN10). Optional: Copies, Branch, Author, Category, Publisher.`)
   }
 
   const existing = new Set(
