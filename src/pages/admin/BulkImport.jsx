@@ -77,8 +77,8 @@ export default function BulkImport() {
         toast('Unsupported file. Please choose a .xlsx or .csv file.', 'error')
         return
       }
-    } catch {
-      toast('That file could not be read. Make sure it is a valid spreadsheet.', 'error')
+    } catch (e) {
+      toast(e.message || 'That file could not be read. Make sure it is a valid spreadsheet.', 'error')
       return
     }
 
