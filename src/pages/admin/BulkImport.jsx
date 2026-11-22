@@ -63,52 +63,56 @@ export default function BulkImport() {
       } else if (name.endsWith('.xlsx')) {
         const result = await readXlsxFile(selected)
 
-        if (Array.isArray(result)) {
-          if (result.length === 0) {
+        const extractRows = (obj) => {
+          if (!obj || typeof obj !== 'object') return null
+          const keys = Object.keys(obj)
+          // Check if this looks like a header row (contains Book Name, Title, etc.)
+          const normalized = keys.map(k => String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''))
+          const hasTitle = normalized.some(k => ['bookname', 'title', 'book', 'name', 'booktitle'].includes(k))
+          const hasIsbn = normalized.some(k => ['isbn', 'isbn13', 'isbn10'].includes(k))
+          if (hasTitle && hasIsbn) return obj
+
+          // This might be a row object with keys like 'sheet' and 'data'
+          // Try to find the actual data
+          if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+            return extractRows(obj.data)
+          }
+          return null
+        }
+
+        const flattenResult = (res) => {
+          if (Array.isArray(res)) {
+            return res
+          }
+          if (res && typeof res === 'object') {
+            // Try to find actual rows in nested structures
+            if (Array.isArray(res.data)) {
+              return flattenResult(res.data)
+            }
+            if (Array.isArray(res.rows)) {
+              return flattenResult(res.rows)
+            }
+          }
+          return res
+        }
+
+        const normalized = flattenResult(result)
+
+        if (Array.isArray(normalized)) {
+          if (normalized.length === 0) {
             throw new Error('Excel file is empty')
           }
-          if (typeof result[0] === 'object' && !Array.isArray(result[0])) {
-            const headers = Object.keys(result[0] || {})
-            table = [headers, ...result.map(row => Object.values(row || {}))]
+          // Check if first element is array of arrays or array of objects
+          if (Array.isArray(normalized[0])) {
+            table = normalized
+          } else if (typeof normalized[0] === 'object' && !Array.isArray(normalized[0])) {
+            const headers = Object.keys(normalized[0] || {})
+            table = [headers, ...normalized.map(row => Object.values(row || {}))]
           } else {
-            table = result
-          }
-        } else if (result && typeof result === 'object') {
-          // Extract data from nested {sheet, data} structures
-          let data = result.data
-          let depth = 0
-          while (data && typeof data === 'object' && !Array.isArray(data) && 'data' in data && depth < 5) {
-            data = data.data
-            depth++
-          }
-          if (Array.isArray(data) && data.length > 0) {
-            if (typeof data[0] === 'object' && !Array.isArray(data[0])) {
-              // Check if rows are in cell format: [{sheet: '...', data: 'value'}, ...]
-              if ('sheet' in data[0] && 'data' in data[0]) {
-                // Convert from cell format: [[{cell1}, {cell2}], [{cell1}, {cell2}]]
-                table = data.map(row => row.map ? Object.values(row).map(cell => cell.data || '') : [])
-              } else {
-                // Standard object format: [{col1: 'val', col2: 'val'}, ...]
-                const headers = Object.keys(data[0] || {})
-                table = [headers, ...data.map(row => Object.values(row || {}))]
-              }
-            } else {
-              // Already array format: [[headers], [row1], ...]
-              table = data
-            }
-          } else if (Array.isArray(result.rows)) {
-            const rowsData = result.rows
-            if (rowsData.length > 0 && typeof rowsData[0] === 'object' && !Array.isArray(rowsData[0])) {
-              const headers = Object.keys(rowsData[0] || {})
-              table = [headers, ...rowsData.map(row => Object.values(row || {}))]
-            } else {
-              table = rowsData
-            }
-          } else {
-            throw new Error('Excel file structure not recognized. Please use a standard .xlsx format with data in the first sheet.')
+            throw new Error('Unexpected Excel row format')
           }
         } else {
-          throw new Error('Unexpected Excel result type: ' + typeof result)
+          throw new Error('Could not find row data in Excel file. Structure: ' + JSON.stringify(result).slice(0, 100))
         }
       } else if (name.endsWith('.xls')) {
         toast('Legacy .xls files are not supported. Save the sheet as .xlsx or .csv and try again.', 'error')
