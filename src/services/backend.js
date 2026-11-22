@@ -35,6 +35,7 @@ export function isOfflineError(error) {
     !error ||
     error.code === 'network_error' ||
     error.status === 0 ||
+    error.status === 405 ||
     error.status === 502 ||
     error.status === 503
   )
