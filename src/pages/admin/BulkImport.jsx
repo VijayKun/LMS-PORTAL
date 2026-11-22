@@ -188,9 +188,10 @@ export default function BulkImport() {
         `Bulk import completed: ${ready.length} added, ${failedCount} failed, ${skippedCount} skipped.`,
         'success',
       )
-    } catch {
+    } catch (e) {
+      console.error('Import error:', e)
       setPhase('idle')
-      toast('The import could not be completed. Please try again.', 'error')
+      toast(e.message || 'The import could not be completed. Please try again.', 'error')
     }
   }
 
