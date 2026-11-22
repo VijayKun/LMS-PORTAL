@@ -62,11 +62,11 @@ export default function BulkImport() {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
         const result = await readXlsxFile(selected)
-        // readXlsxFile can return various formats:
-        // - [{header1: 'val', ...}] - array of objects (sheet as objects)
-        // - [[headers], [row1], [row2]] - array of arrays (sheet as arrays)
-        // - { sheet: 'Sheet1', data: [[headers], [row1], ...] } - object with data property
-        // - { rows: [[headers], [row1], ...], columns: {...} } - object with rows property
+        // Handle various formats returned by read-excel-file:
+        // - [[headers], [row1], [row2], ...] - array of arrays
+        // - [{header1: 'val', ...}, {...}] - array of objects (each row is an object)
+        // - { sheet: '...', data: [[...], ...] } or nested { data: { data: [...] } }
+        // - { rows: [...], columns: {...} }
 
         if (Array.isArray(result)) {
           if (result.length > 0 && typeof result[0] === 'object' && !Array.isArray(result[0])) {
@@ -75,22 +75,28 @@ export default function BulkImport() {
           } else {
             table = result
           }
-        } else if (result && Array.isArray(result.data)) {
-          // Format: { sheet: '...', data: [[headers], [row1], ...] }
-          table = result.data
-        } else if (result && typeof result === 'object' && result.data && typeof result.data === 'object' && Array.isArray(result.data.data)) {
-          // Format: { sheet: '...', data: { sheet: '...', data: [[headers], [row1], ...] } }
-          table = result.data.data
-        } else if (result && Array.isArray(result.rows)) {
-          const rowsData = result.rows
-          if (rowsData.length > 0 && typeof rowsData[0] === 'object' && !Array.isArray(rowsData[0])) {
-            const headers = Object.keys(rowsData[0] || {})
-            table = [headers, ...rowsData.map(row => Object.values(row || {}))]
+        } else if (result && typeof result === 'object') {
+          // Extract the actual data array from various nested formats
+          let data = null
+          data = result.data
+          while (data && typeof data === 'object' && !Array.isArray(data) && data.data) {
+            data = data.data
+          }
+          if (Array.isArray(data)) {
+            table = data
+          } else if (Array.isArray(result.rows)) {
+            const rowsData = result.rows
+            if (rowsData.length > 0 && typeof rowsData[0] === 'object' && !Array.isArray(rowsData[0])) {
+              const headers = Object.keys(rowsData[0] || {})
+              table = [headers, ...rowsData.map(row => Object.values(row || {}))]
+            } else {
+              table = rowsData
+            }
           } else {
-            table = rowsData
+            throw new Error('Unexpected Excel format. Found: ' + JSON.stringify(result).slice(0, 150))
           }
         } else {
-          throw new Error('Unexpected format from Excel file. Found: ' + JSON.stringify(result).slice(0, 100))
+          throw new Error('Unexpected Excel result type: ' + typeof result)
         }
       } else if (name.endsWith('.xls')) {
         toast('Legacy .xls files are not supported. Save the sheet as .xlsx or .csv and try again.', 'error')
