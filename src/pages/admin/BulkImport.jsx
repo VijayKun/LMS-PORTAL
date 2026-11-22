@@ -62,28 +62,40 @@ export default function BulkImport() {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
         const result = await readXlsxFile(selected)
-        // Handle various formats returned by read-excel-file:
-        // - [[headers], [row1], [row2], ...] - array of arrays
-        // - [{header1: 'val', ...}, {...}] - array of objects (each row is an object)
-        // - { sheet: '...', data: [[...], ...] } or nested { data: { data: [...] } }
-        // - { rows: [...], columns: {...} }
 
         if (Array.isArray(result)) {
-          if (result.length > 0 && typeof result[0] === 'object' && !Array.isArray(result[0])) {
+          if (result.length === 0) {
+            throw new Error('Excel file is empty')
+          }
+          if (typeof result[0] === 'object' && !Array.isArray(result[0])) {
             const headers = Object.keys(result[0] || {})
             table = [headers, ...result.map(row => Object.values(row || {}))]
           } else {
             table = result
           }
         } else if (result && typeof result === 'object') {
-          // Extract the actual data array from various nested formats
-          let data = null
-          data = result.data
-          while (data && typeof data === 'object' && !Array.isArray(data) && data.data) {
+          // Extract data from nested {sheet, data} structures
+          let data = result.data
+          let depth = 0
+          while (data && typeof data === 'object' && !Array.isArray(data) && 'data' in data && depth < 5) {
             data = data.data
+            depth++
           }
-          if (Array.isArray(data)) {
-            table = data
+          if (Array.isArray(data) && data.length > 0) {
+            if (typeof data[0] === 'object' && !Array.isArray(data[0])) {
+              // Check if rows are in cell format: [{sheet: '...', data: 'value'}, ...]
+              if ('sheet' in data[0] && 'data' in data[0]) {
+                // Convert from cell format: [[{cell1}, {cell2}], [{cell1}, {cell2}]]
+                table = data.map(row => row.map ? Object.values(row).map(cell => cell.data || '') : [])
+              } else {
+                // Standard object format: [{col1: 'val', col2: 'val'}, ...]
+                const headers = Object.keys(data[0] || {})
+                table = [headers, ...data.map(row => Object.values(row || {}))]
+              }
+            } else {
+              // Already array format: [[headers], [row1], ...]
+              table = data
+            }
           } else if (Array.isArray(result.rows)) {
             const rowsData = result.rows
             if (rowsData.length > 0 && typeof rowsData[0] === 'object' && !Array.isArray(rowsData[0])) {
@@ -93,7 +105,7 @@ export default function BulkImport() {
               table = rowsData
             }
           } else {
-            throw new Error('Unexpected Excel format. Found: ' + JSON.stringify(result).slice(0, 150))
+            throw new Error('Excel file structure not recognized. Please use a standard .xlsx format with data in the first sheet.')
           }
         } else {
           throw new Error('Unexpected Excel result type: ' + typeof result)
