@@ -15,7 +15,7 @@
  */
 import { mockBooks, mockStudents } from '../data/index.js'
 import { loginRequestSchema, importRowsSchema, parseWith } from '../validation/schemas.js'
-import { API_BASE } from './backend.js'
+import { API_BASE, ApiError } from './backend.js'
 
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -153,15 +153,24 @@ export async function lookupBookByISBN(isbn) {
 export async function importBooksRequest(rows = []) {
   parseWith(importRowsSchema, rows)
   await delay()
-  const data = await fetch(`${API_BASE}/api/books/import`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ books: rows }),
-  })
-  if (!data.ok) {
-    throw new Error(data.status === 401 ? 'Authentication required' : 'Import failed')
+  try {
+    const data = await fetch(`${API_BASE}/api/books/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ books: rows }),
+    })
+    if (!data.ok) {
+      if (data.status === 401) {
+        throw new ApiError('Authentication required', { status: 401, code: 'unauthorized' })
+      }
+      const errData = await data.json().catch(() => ({}))
+      throw new Error(errData.message || 'Import failed')
+    }
+    return await data.json()
+  } catch (e) {
+    if (e instanceof Error) throw e
+    throw new Error('Import failed')
   }
-  return data.json()
 }
 
 /** MOCK: would become GET /api/reports/:type */
