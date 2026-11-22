@@ -62,28 +62,32 @@ export default function BulkImport() {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
         const result = await readXlsxFile(selected)
+        // readXlsxFile can return various formats:
+        // - [{header1: 'val', ...}] - array of objects (sheet as objects)
+        // - [[headers], [row1], [row2]] - array of arrays (sheet as arrays)
+        // - { sheet: 'Sheet1', data: [[headers], [row1], ...] } - object with data property
+        // - { rows: [[headers], [row1], ...], columns: {...} } - object with rows property
+
         if (Array.isArray(result)) {
-          // Format 1: [headers as array, row1 as array, row2 as array, ...]
-          // Format 2: [{header1: 'val', ...}, {header1: 'val', ...}, ...] - array of objects
           if (result.length > 0 && typeof result[0] === 'object' && !Array.isArray(result[0])) {
-            // First row is an object (not an array) - extract headers from the object keys
             const headers = Object.keys(result[0] || {})
             table = [headers, ...result.map(row => Object.values(row || {}))]
           } else {
             table = result
           }
+        } else if (result && Array.isArray(result.data)) {
+          // Format: { sheet: '...', data: [[headers], [row1], ...] }
+          table = result.data
         } else if (result && Array.isArray(result.rows)) {
-          // Format 3: { rows: [{header1: 'val', ...}, ...], columns: {...} }
           const rowsData = result.rows
           if (rowsData.length > 0 && typeof rowsData[0] === 'object' && !Array.isArray(rowsData[0])) {
-            // First row is an object - extract headers and convert
             const headers = Object.keys(rowsData[0] || {})
             table = [headers, ...rowsData.map(row => Object.values(row || {}))]
           } else {
             table = rowsData
           }
         } else {
-          throw new Error('Unexpected format from Excel file. Expected array of rows.')
+          throw new Error('Unexpected format from Excel file. Found: ' + JSON.stringify(result).slice(0, 100))
         }
       } else if (name.endsWith('.xls')) {
         toast('Legacy .xls files are not supported. Save the sheet as .xlsx or .csv and try again.', 'error')
