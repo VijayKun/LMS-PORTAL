@@ -62,6 +62,13 @@ export default function BulkImport() {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
         table = await readXlsxFile(selected)
+        // read-excel-file can return { rows: [...] } or just [...] depending on version/options
+        if (table && table.rows && Array.isArray(table.rows)) {
+          table = table.rows
+        }
+        if (!Array.isArray(table)) {
+          throw new Error('Unexpected format from Excel file. Expected array of rows.')
+        }
       } else if (name.endsWith('.xls')) {
         toast('Legacy .xls files are not supported. Save the sheet as .xlsx or .csv and try again.', 'error')
         return
