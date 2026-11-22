@@ -24,6 +24,9 @@ const MAX_COPIES = 9999
 
 /** Maps a header row to column indexes: { title: 0, isbn: 1, ... } */
 export function mapHeaders(headerRow) {
+  if (!Array.isArray(headerRow)) {
+    throw new Error('Header row must be an array of column names')
+  }
   const map = {}
   headerRow.forEach((cell, index) => {
     const key = normalize(cell)
@@ -78,7 +81,13 @@ export function buildImportRows(table, { existingBooks = [], branches = [] } = {
   )
   const seen = new Set()
 
+  if (!Array.isArray(table[0])) {
+    throw new Error('Header row must be an array of column names')
+  }
   return table.slice(1).map((cells, index) => {
+    if (!Array.isArray(cells)) {
+      throw new Error(`Data row ${index + 1} is not properly formatted`)
+    }
     const get = (field) =>
       header[field] === undefined ? '' : String(cells[header[field]] ?? '').trim()
 
