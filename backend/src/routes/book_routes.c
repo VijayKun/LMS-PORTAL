@@ -10,6 +10,17 @@ bool book_routes_handle(AppContext *app, struct mg_connection *c,
                         const struct mg_http_message *hm) {
   struct mg_str caps[1];
 
+  /* POST /api/books/import - bulk create books (admin only). Must be first since */
+  /* /api/books/* would otherwise match this as an item route. */
+  if (mg_match(hm->uri, mg_str("/api/books/import"), NULL)) {
+    if (mg_strcasecmp(hm->method, mg_str("POST")) != 0) {
+      send_json_error(c, 405, "method_not_allowed", "Use POST.");
+      return true;
+    }
+    book_controller_import(app, c, hm);
+    return true;
+  }
+
   /* Google Books metadata lookup - checked before the isbn/id routes. */
   if (mg_match(hm->uri, mg_str("/api/books/lookup/*"), caps)) {
     if (mg_strcasecmp(hm->method, mg_str("GET")) != 0) {

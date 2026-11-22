@@ -35,4 +35,8 @@ void book_controller_update(AppContext *app, struct mg_connection *c,
 void book_controller_delete(AppContext *app, struct mg_connection *c,
                             const struct mg_http_message *hm, struct mg_str id);
 
+/** POST /api/books/import - bulk create books from a JSON array (admin session required). */
+void book_controller_import(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm);
+
 #endif /* LMS_BOOK_CONTROLLER_H */

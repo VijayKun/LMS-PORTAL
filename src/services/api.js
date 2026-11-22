@@ -147,13 +147,21 @@ export async function lookupBookByISBN(isbn) {
 }
 
 /**
- * MOCK: would become POST /api/books/import
+ * POST /api/books/import - bulk create books
  * @param {Array} rows validated import candidates (see importRowSchema)
  */
 export async function importBooksRequest(rows = []) {
   parseWith(importRowsSchema, rows)
-  await delay(600)
-  return { success: true }
+  await delay()
+  const data = await fetch(`${API_BASE}/api/books/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ books: rows }),
+  })
+  if (!data.ok) {
+    throw new Error(data.status === 401 ? 'Authentication required' : 'Import failed')
+  }
+  return data.json()
 }
 
 /** MOCK: would become GET /api/reports/:type */

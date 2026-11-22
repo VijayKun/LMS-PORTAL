@@ -175,4 +175,18 @@ typedef enum {
 BookDeleteStatus book_service_delete(Database *db, const char *id, char *errbuf,
                                      size_t errlen);
 
+typedef enum {
+  BOOK_IMPORT_OK = 0,
+  BOOK_IMPORT_DB_UNAVAILABLE,
+  BOOK_IMPORT_QUERY_FAILED,
+  BOOK_IMPORT_BUFFER_TOO_SMALL
+} BookImportStatus;
+
+#define BOOKS_IMPORT_MAX 500
+#define BOOKS_IMPORT_JSON_MAX 1048576
+
+BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t json_len,
+                                          char *out, size_t out_size, char *errbuf,
+                                          size_t errlen);
+
 #endif /* LMS_BOOK_SERVICE_H */

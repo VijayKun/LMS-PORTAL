@@ -7,6 +7,7 @@
 #ifndef LMS_JSON_UTILS_H
 #define LMS_JSON_UTILS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 /** How a database text value should be rendered in JSON. */
@@ -67,5 +68,13 @@ int json_array_of_objects(const char *const *keys, const int *kinds,
 int json_object_of_row(const char *const *keys, const int *kinds,
                        const char *const *values, int ncols, char *out,
                        size_t out_size);
+
+int json_array_count(const char *json, const char *key);
+
+int json_array_get(const char *json, const char *key, int index, char *out,
+                   size_t out_size);
+
+bool json_string_of_key(const char *json, const char *key, char *out,
+                        size_t out_size);
 
 #endif /* LMS_JSON_UTILS_H */

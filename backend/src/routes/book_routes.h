@@ -10,7 +10,7 @@
 #include "server/server.h"
 
 /**
- * Handle GET /api/books and GET /api/books/:id.
+ * Handle all book routes including /api/books/import.
  * @return true when the request was handled here.
  */
 bool book_routes_handle(AppContext *app, struct mg_connection *c,

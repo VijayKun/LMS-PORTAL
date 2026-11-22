@@ -479,3 +479,45 @@ void book_controller_delete(AppContext *app, struct mg_connection *c,
       break;
   }
 }
+
+void book_controller_import(AppContext *app, struct mg_connection *c,
+                            const struct mg_http_message *hm) {
+  Session *session = auth_require_admin(app, c, hm);
+  if (session == NULL) return;
+
+  if (hm->body.len == 0 || hm->body.len > 1048576) {
+    send_json_error(c, 400, "invalid_body", "A JSON body with books array is required.");
+    return;
+  }
+
+  char body[1048577];
+  memcpy(body, hm->body.buf, hm->body.len);
+  body[hm->body.len] = '\0';
+
+  char errbuf[256] = {0};
+  char out[1024];
+
+  BookImportStatus status = book_service_import_bulk(app->db, body, hm->body.len,
+                                                     out, sizeof(out), errbuf,
+                                                     sizeof(errbuf));
+
+  switch (status) {
+    case BOOK_IMPORT_OK:
+      fprintf(stderr, "[books] bulk import by '%s': %s\n", session->admin_id, out);
+      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", out);
+      break;
+    case BOOK_IMPORT_DB_UNAVAILABLE:
+      send_json_error(c, 503, "database_unavailable",
+                      "The book catalog is temporarily unavailable.");
+      break;
+    case BOOK_IMPORT_BUFFER_TOO_SMALL:
+      send_json_error(c, 413, "payload_too_large", "The request body is too large.");
+      break;
+    case BOOK_IMPORT_QUERY_FAILED:
+    default:
+      fprintf(stderr, "[books] bulk import failed: %s\n",
+              errbuf[0] ? errbuf : "(no details)");
+      send_json_error(c, 500, "database_error", "Could not import books right now.");
+      break;
+  }
+}

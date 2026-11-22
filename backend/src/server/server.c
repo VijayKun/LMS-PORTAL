@@ -48,7 +48,7 @@ static void dispatch(struct mg_connection *c, const struct mg_http_message *hm) 
   if (health_routes_handle(app, c, hm)) {
     return;
   }
-  if (auth_routes_handle(app, c, hm)) {
+if (auth_routes_handle(app, c, hm)) {
     return;
   }
   if (book_routes_handle(app, c, hm)) {
