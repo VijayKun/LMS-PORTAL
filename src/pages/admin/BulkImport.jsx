@@ -78,6 +78,9 @@ export default function BulkImport() {
         } else if (result && Array.isArray(result.data)) {
           // Format: { sheet: '...', data: [[headers], [row1], ...] }
           table = result.data
+        } else if (result && typeof result === 'object' && result.data && typeof result.data === 'object' && Array.isArray(result.data.data)) {
+          // Format: { sheet: '...', data: { sheet: '...', data: [[headers], [row1], ...] } }
+          table = result.data.data
         } else if (result && Array.isArray(result.rows)) {
           const rowsData = result.rows
           if (rowsData.length > 0 && typeof rowsData[0] === 'object' && !Array.isArray(rowsData[0])) {
