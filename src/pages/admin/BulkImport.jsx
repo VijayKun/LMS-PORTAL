@@ -61,12 +61,13 @@ export default function BulkImport() {
       if (name.endsWith('.csv')) {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
-        table = await readXlsxFile(selected)
-        // read-excel-file can return { rows: [...] } or just [...] depending on version/options
-        if (table && table.rows && Array.isArray(table.rows)) {
-          table = table.rows
-        }
-        if (!Array.isArray(table)) {
+        const result = await readXlsxFile(selected)
+        // read-excel-file returns either: [headers, row1, row2, ...] or { rows: [...], columns: {...} }
+        if (Array.isArray(result)) {
+          table = result
+        } else if (result && Array.isArray(result.rows)) {
+          table = result.rows
+        } else {
           throw new Error('Unexpected format from Excel file. Expected array of rows.')
         }
       } else if (name.endsWith('.xls')) {
