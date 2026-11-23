@@ -7,6 +7,7 @@ import {
   mergeBookInfo,
 } from './importRows.js'
 import { toBookImportPayload } from '../services/mappers.js'
+import { lookupBookByISBN } from '../services/api.js'
 
 const branches = [
   { id: 'cs', name: 'Computer Science & Engineering' },
@@ -208,6 +209,52 @@ describe('mergeBookInfo', () => {
   it('leaves the row untouched when nothing was found', () => {
     const row = { title: 'A', isbn: '9780132350884', author: 'Unknown' }
     expect(mergeBookInfo(row, { found: false })).toBe(row)
+  })
+})
+
+describe('lookupBookByISBN', () => {
+  it('falls back to Google Books directly and keeps cover and details', async () => {
+    const originalFetch = globalThis.fetch
+    const calls = []
+    globalThis.fetch = async (url) => {
+      calls.push(String(url))
+      if (String(url).includes('/api/books/lookup/')) return { ok: false, status: 404 }
+      return {
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              volumeInfo: {
+                title: 'Clean Code',
+                authors: ['Robert C. Martin'],
+                categories: ['Computers'],
+                publisher: 'Pearson',
+                publishedDate: '2009',
+                description: 'A book about code',
+                imageLinks: { thumbnail: 'http://books.google.com/cover.jpg' },
+                pageCount: 464,
+              },
+            },
+          ],
+        }),
+      }
+    }
+
+    try {
+      const info = await lookupBookByISBN('9780132350884')
+      expect(info).toMatchObject({
+        found: true,
+        source: 'google-direct',
+        author: 'Robert C. Martin',
+        cover: 'https://books.google.com/cover.jpg',
+        publicationDate: '2009-01-01',
+        description: 'A book about code',
+        pageCount: 464,
+      })
+      expect(calls[1]).toContain('www.googleapis.com')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
 

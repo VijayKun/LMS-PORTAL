@@ -76,10 +76,11 @@ export default function BookForm({ mode }) {
           publisher: info.publisher || f.publisher,
           publicationDate: info.publicationDate || f.publicationDate,
           description: info.description || f.description,
+          cover: info.cover || f.cover,
         }))
         setLookupMsg(
-          info.source === 'google'
-            ? 'Details fetched from Google Books.'
+          String(info.source).startsWith('google')
+            ? 'Details and cover fetched from Google Books.'
             : 'Details fetched from the local catalog (backend offline).',
         )
       } else {

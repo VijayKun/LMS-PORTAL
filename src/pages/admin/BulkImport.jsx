@@ -43,6 +43,7 @@ export default function BulkImport() {
   const [phase, setPhase] = useState('idle') // idle | running | done
   const [step, setStep] = useState(-1)
   const [rows, setRows] = useState([])
+  const [enrichedCount, setEnrichedCount] = useState(0)
   const inputRef = useRef(null)
   const timers = useRef([])
 
@@ -104,6 +105,7 @@ export default function BulkImport() {
     timers.current.forEach(clearTimeout)
     setFile(selected)
     setRows(built)
+    setEnrichedCount(0)
     setPhase('idle')
     setStep(-1)
   }
@@ -115,6 +117,7 @@ export default function BulkImport() {
       return acc
     }, [])
     const enriched = [...list]
+    let found = 0
 
     for (let i = 0; i < indices.length; i += ENRICH_CONCURRENCY) {
       const batch = indices.slice(i, i + ENRICH_CONCURRENCY)
@@ -122,9 +125,11 @@ export default function BulkImport() {
         batch.map((index) => lookupBookByISBN(list[index].isbn).catch(() => null)),
       )
       batch.forEach((index, position) => {
+        if (results[position]?.found) found++
         enriched[index] = mergeBookInfo(enriched[index], results[position])
       })
     }
+    setEnrichedCount(found)
     return enriched
   }
 
@@ -212,6 +217,7 @@ export default function BulkImport() {
     timers.current.forEach(clearTimeout)
     setFile(null)
     setRows([])
+    setEnrichedCount(0)
     setPhase('idle')
     setStep(-1)
   }
@@ -422,6 +428,11 @@ export default function BulkImport() {
                 )
               })}
             </div>
+            {step >= 2 && (
+              <p className="text-xs text-muted mt-3">
+                Google Books supplied metadata and covers for {enrichedCount} of {readyRows} book(s).
+              </p>
+            )}
           </div>
 
           {phase === 'done' && (

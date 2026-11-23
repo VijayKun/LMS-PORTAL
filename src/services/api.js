@@ -104,9 +104,43 @@ function localIsbnLookup(clean) {
   }
 }
 
+/** Google Books can be called from the browser without a key (rate-limited). */
+async function googleBooksDirect(isbn) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`,
+      { signal: controller.signal },
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const volume = data?.items?.[0]?.volumeInfo
+    if (!volume?.title) return null
+    const thumbnail = volume.imageLinks?.thumbnail || volume.imageLinks?.smallThumbnail || ''
+    return {
+      isbn,
+      found: true,
+      title: volume.title,
+      author: volume.authors?.[0] || '',
+      category: volume.categories?.[0] || '',
+      publisher: volume.publisher || '',
+      publicationDate: normalizeDate(volume.publishedDate),
+      description: volume.description || '',
+      cover: thumbnail.replace(/^http:/, 'https:'),
+      pageCount: Number(volume.pageCount) || 0,
+    }
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /**
- * ISBN lookup. Calls the backend Google Books proxy, then falls back to the
- * local demo catalog so the UI keeps working when the backend is offline.
+ * ISBN lookup. Tries the backend Google Books proxy first (it holds the API
+ * key), then Google Books directly, then the local demo catalog. Cover and
+ * description are part of every Google result.
  *
  * @param {string} isbn
  * @returns {{ isbn, found, source, title?, author?, category?, publisher?,
@@ -140,8 +174,11 @@ export async function lookupBookByISBN(isbn) {
       }
     }
   } catch {
-    // Backend offline or blocked - use the demo catalog below.
+    // Backend offline or blocked - try Google directly below.
   }
+
+  const direct = await googleBooksDirect(clean)
+  if (direct) return { ...direct, source: 'google-direct' }
 
   const local = localIsbnLookup(clean)
   if (local) return { ...local, source: 'local' }
