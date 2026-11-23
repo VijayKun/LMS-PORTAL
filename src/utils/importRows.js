@@ -56,6 +56,97 @@ export function isValidIsbn(raw) {
   return false
 }
 
+const WRAPPER_KEYS = ['data', 'rows', 'sheets', 'sheet', 'table', 'values']
+
+/**
+ * Fill a two-column import row with the metadata returned by Google Books.
+ * Spreadsheet values always win; placeholders and blank fields are replaced.
+ */
+export function mergeBookInfo(row, info) {
+  if (!info?.found) return row
+  const prefer = (current, fallback, placeholder) =>
+    current && current !== placeholder ? current : fallback || current
+  return {
+    ...row,
+    author: prefer(row.author, info.author, 'Unknown'),
+    category: prefer(row.category, info.category, 'General'),
+    publisher: prefer(row.publisher, info.publisher, '—'),
+    publicationDate: row.publicationDate || info.publicationDate || '',
+    description: row.description || info.description || '',
+    cover: row.cover || info.cover || '',
+    pageCount: row.pageCount || info.pageCount || 0,
+  }
+}
+
+/**
+ * Normalises whatever read-excel-file (or a wrapper around it) returns into a
+ * plain 2D table. Handles { sheet, data }, nested wrappers, numeric-key
+ * objects and arrays of row objects.
+ *
+ * @param {*} value
+ * @param {number} depth recursion guard
+ * @returns {Array<Array>|null}
+ */
+export function normalizeSheetResult(value, depth = 0) {
+  if (depth > 12 || value == null) return null
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return []
+    if (Array.isArray(value[0])) return value
+
+    if (typeof value[0] === 'object' && value[0] !== null) {
+      const keys = Object.keys(value[0])
+      const isWrapper =
+        keys.some((key) => WRAPPER_KEYS.includes(key)) &&
+        !keys.some((key) => /isbn|title|book|author/i.test(key))
+
+      if (isWrapper) {
+        for (const item of value) {
+          for (const key of WRAPPER_KEYS) {
+            const nested = normalizeSheetResult(item?.[key], depth + 1)
+            if (nested && nested.length) return nested
+          }
+        }
+        return null
+      }
+
+      const rows = value.map((row) =>
+        keys.map((key) => {
+          const cell = row?.[key]
+          if (cell && typeof cell === 'object' && !Array.isArray(cell) && !(cell instanceof Date)) {
+            for (const wrapperKey of WRAPPER_KEYS) {
+              const nested = normalizeSheetResult(cell[wrapperKey], depth + 1)
+              if (nested && nested.length) return nested
+            }
+          }
+          return cell
+        }),
+      )
+      return [keys, ...rows]
+    }
+
+    return [value]
+  }
+
+  if (typeof value === 'object' && !(value instanceof Date)) {
+    const keys = Object.keys(value)
+    if (keys.length && keys.every((key) => /^\d+$/.test(key))) {
+      return normalizeSheetResult(
+        keys.sort((a, b) => Number(a) - Number(b)).map((key) => value[key]),
+        depth + 1,
+      )
+    }
+    for (const key of WRAPPER_KEYS) {
+      if (value[key] !== undefined) {
+        const nested = normalizeSheetResult(value[key], depth + 1)
+        if (nested && nested.length) return nested
+      }
+    }
+  }
+
+  return null
+}
+
 /**
  * Turns raw table rows (first row = headers) into validated import candidates.
  *

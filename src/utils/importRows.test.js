@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { mapHeaders, isValidIsbn, buildImportRows } from './importRows.js'
+import {
+  mapHeaders,
+  isValidIsbn,
+  buildImportRows,
+  normalizeSheetResult,
+  mergeBookInfo,
+} from './importRows.js'
 import { toBookImportPayload } from '../services/mappers.js'
 
 const branches = [
@@ -126,6 +132,82 @@ describe('buildImportRows', () => {
     )
     expect(rows[0].copies).toBe(9999)
     expect(rows[0].initial).toBe('ready')
+  })
+})
+
+describe('normalizeSheetResult', () => {
+  const twoColumnTable = [
+    ['Book Name', 'ISBN'],
+    ['Clean Code', '9780132350884'],
+  ]
+
+  it('passes a plain 2D array through', () => {
+    expect(normalizeSheetResult(twoColumnTable)).toEqual(twoColumnTable)
+  })
+
+  it('unwraps {sheet, data} wrappers at any depth', () => {
+    expect(normalizeSheetResult({ sheet: 'Sheet1', data: twoColumnTable })).toEqual(twoColumnTable)
+    expect(
+      normalizeSheetResult({ sheet: 'Sheet1', data: [{ sheet: 'Sheet1', data: twoColumnTable }] }),
+    ).toEqual(twoColumnTable)
+    expect(normalizeSheetResult({ data: { 0: twoColumnTable[0], 1: twoColumnTable[1] } })).toEqual(
+      twoColumnTable,
+    )
+  })
+
+  it('converts arrays of row objects into a 2D table', () => {
+    expect(normalizeSheetResult([{ 'Book Name': 'Clean Code', ISBN: '9780132350884' }])).toEqual(
+      twoColumnTable,
+    )
+  })
+
+  it('feeds a two-column spreadsheet straight into buildImportRows', () => {
+    const parsed = buildImportRows(
+      normalizeSheetResult({ sheet: 'Books', data: [{ sheet: 'Books', data: twoColumnTable }] }),
+      { branches },
+    )
+    expect(parsed[0]).toMatchObject({
+      title: 'Clean Code',
+      isbn: '9780132350884',
+      author: 'Unknown',
+      category: 'General',
+      publisher: '—',
+      initial: 'ready',
+    })
+  })
+})
+
+describe('mergeBookInfo', () => {
+  it('fills a two-column row with the full Google Books record', () => {
+    const row = buildImportRows(
+      [['Book Name', 'ISBN'], ['Clean Code', '9780132350884']],
+      { branches },
+    )[0]
+    const enriched = mergeBookInfo(row, {
+      found: true,
+      author: 'Robert C. Martin',
+      category: 'Computers',
+      publisher: 'Pearson Education',
+      publicationDate: '2009-01-01',
+      description: 'A book about code',
+      cover: 'https://books.google.com/cover.jpg',
+      pageCount: 464,
+    })
+    expect(enriched).toMatchObject({
+      title: 'Clean Code',
+      author: 'Robert C. Martin',
+      category: 'Computers',
+      publisher: 'Pearson Education',
+      publicationDate: '2009-01-01',
+      description: 'A book about code',
+      cover: 'https://books.google.com/cover.jpg',
+      pageCount: 464,
+    })
+  })
+
+  it('leaves the row untouched when nothing was found', () => {
+    const row = { title: 'A', isbn: '9780132350884', author: 'Unknown' }
+    expect(mergeBookInfo(row, { found: false })).toBe(row)
   })
 })
 

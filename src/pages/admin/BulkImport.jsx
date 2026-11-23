@@ -16,7 +16,7 @@ import Badge from '../../components/ui/Badge.jsx'
 import Breadcrumbs from '../../components/ui/Breadcrumbs.jsx'
 import { importBooksRequest, lookupBookByISBN } from '../../services/api.js'
 import { parseCsv, toCsv, downloadTextFile } from '../../utils/csv.js'
-import { buildImportRows } from '../../utils/importRows.js'
+import { buildImportRows, mergeBookInfo, normalizeSheetResult } from '../../utils/importRows.js'
 import { MAX_IMPORT_ROWS } from '../../validation/schemas.js'
 import readXlsxFile from 'read-excel-file/browser'
 
@@ -64,41 +64,15 @@ export default function BulkImport() {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
         const result = await readXlsxFile(selected)
+        const normalized = normalizeSheetResult(result)
 
-        const flattenResult = (res) => {
-          if (Array.isArray(res)) {
-            return res
-          }
-          if (res && typeof res === 'object') {
-            // Try to find actual rows in nested structures
-            if (Array.isArray(res.data)) {
-              return flattenResult(res.data)
-            }
-            if (Array.isArray(res.rows)) {
-              return flattenResult(res.rows)
-            }
-          }
-          return res
+        if (!normalized || normalized.length === 0) {
+          throw new Error('Excel file is empty or could not be read')
         }
-
-        const normalized = flattenResult(result)
-
-        if (Array.isArray(normalized)) {
-          if (normalized.length === 0) {
-            throw new Error('Excel file is empty')
-          }
-          // Check if first element is array of arrays or array of objects
-          if (Array.isArray(normalized[0])) {
-            table = normalized
-          } else if (typeof normalized[0] === 'object' && !Array.isArray(normalized[0])) {
-            const headers = Object.keys(normalized[0] || {})
-            table = [headers, ...normalized.map(row => Object.values(row || {}))]
-          } else {
-            throw new Error('Unexpected Excel row format')
-          }
-        } else {
-          throw new Error('Could not find row data in Excel file. Structure: ' + JSON.stringify(result).slice(0, 100))
+        if (!Array.isArray(normalized[0])) {
+          throw new Error('Unexpected Excel row format')
         }
+        table = normalized
       } else if (name.endsWith('.xls')) {
         toast('Legacy .xls files are not supported. Save the sheet as .xlsx or .csv and try again.', 'error')
         return
@@ -134,24 +108,7 @@ export default function BulkImport() {
     setStep(-1)
   }
 
-  /** Keep spreadsheet values authoritative; fill only what is missing from Google Books. */
-  function mergeGoogleInfo(row, info) {
-    if (!info?.found) return row
-    const prefer = (current, fallback, placeholder) =>
-      current && current !== placeholder ? current : fallback || current
-    return {
-      ...row,
-      author: prefer(row.author, info.author, 'Unknown'),
-      category: prefer(row.category, info.category, 'General'),
-      publisher: prefer(row.publisher, info.publisher, '—'),
-      publicationDate: row.publicationDate || info.publicationDate || '',
-      description: row.description || info.description || '',
-      cover: row.cover || info.cover || '',
-      pageCount: row.pageCount || info.pageCount || 0,
-    }
-  }
-
-  /** Look up every ready row so even complete spreadsheets get full metadata. */
+  /** Look up every ready row so even two-column sheets get full metadata. */
   async function enrichRows(list) {
     const indices = list.reduce((acc, row, index) => {
       if (row.initial === 'ready') acc.push(index)
@@ -165,7 +122,7 @@ export default function BulkImport() {
         batch.map((index) => lookupBookByISBN(list[index].isbn).catch(() => null)),
       )
       batch.forEach((index, position) => {
-        enriched[index] = mergeGoogleInfo(enriched[index], results[position])
+        enriched[index] = mergeBookInfo(enriched[index], results[position])
       })
     }
     return enriched
