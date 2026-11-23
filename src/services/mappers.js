@@ -119,13 +119,50 @@ export function toBookPayload(book = {}) {
     isbn: book.isbn,
     category: book.category || '',
     publisher: book.publisher || '',
-    publication_date: book.publicationDate || '',
+    publication_date: toDbDate(book.publicationDate),
     description: book.description || '',
     cover: book.cover || '',
     total_copies: String(book.totalCopies ?? 1),
     available_copies: String(book.availableCopies ?? book.totalCopies ?? 1),
     year: String(book.year ?? 0),
     branch_id: book.branchId || '',
+  }
+}
+
+/** Partial dates from Google Books become the YYYY-MM-DD the API expects. */
+function toDbDate(value) {
+  const s = String(value ?? '').trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  if (/^\d{4}-\d{1,2}$/.test(s)) {
+    const [year, month] = s.split('-')
+    return `${year}-${month.padStart(2, '0')}-01`
+  }
+  if (/^\d{4}$/.test(s)) return `${s}-01-01`
+  return ''
+}
+
+/**
+ * A validated bulk-import row -> the exact JSON shape POST /api/books/import
+ * reads. The database stores counts as strings and needs a full calendar date.
+ */
+export function toBookImportPayload(row = {}) {
+  const parsed = Number(row.copies)
+  const copies = Number.isFinite(parsed) ? Math.min(9999, Math.max(1, Math.floor(parsed))) : 1
+  const publicationDate = toDbDate(row.publicationDate)
+  const year = /^\d{4}/.test(publicationDate) ? publicationDate.slice(0, 4) : '0'
+  return {
+    title: row.title || '',
+    author: row.author || '',
+    isbn: row.isbn || '',
+    category: row.category || 'General',
+    publisher: row.publisher || '',
+    publicationDate,
+    description: row.description || '',
+    cover: row.cover || '',
+    totalCopies: String(copies),
+    availableCopies: String(copies),
+    year: Number(year) <= 3000 ? year : '0',
+    branchId: row.branchId || '',
   }
 }
 

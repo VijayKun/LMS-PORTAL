@@ -15,6 +15,7 @@
  */
 import { mockBooks, mockStudents } from '../data/index.js'
 import { loginRequestSchema, importRowsSchema, parseWith } from '../validation/schemas.js'
+import { toBookImportPayload } from './mappers.js'
 import { API_BASE, ApiError } from './backend.js'
 
 const delay = (ms = 450) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -109,7 +110,7 @@ function localIsbnLookup(clean) {
  *
  * @param {string} isbn
  * @returns {{ isbn, found, source, title?, author?, category?, publisher?,
- *             publicationDate?, description?, cover? }}
+ *             publicationDate?, description?, cover?, pageCount? }}
  */
 export async function lookupBookByISBN(isbn) {
   const clean = String(isbn).replace(/[-\s]/g, '').toUpperCase()
@@ -134,6 +135,7 @@ export async function lookupBookByISBN(isbn) {
           publicationDate: normalizeDate(data.publicationDate),
           description: data.description || '',
           cover: data.cover || '',
+          pageCount: Number(data.pageCount) || 0,
         }
       }
     }
@@ -147,26 +149,32 @@ export async function lookupBookByISBN(isbn) {
 }
 
 /**
- * POST /api/books/import - bulk create books
+ * POST /api/books/import - bulk create books.
+ * Validates the UI rows, maps them onto the backend's payload contract and
+ * returns { created, duplicates, failed, results[] } for per-row feedback.
  * @param {Array} rows validated import candidates (see importRowSchema)
  */
 export async function importBooksRequest(rows = []) {
-  parseWith(importRowsSchema, rows)
-  await delay()
+  const validated = parseWith(importRowsSchema, rows)
+  const books = validated.map(toBookImportPayload)
   try {
-    const data = await fetch(`${API_BASE}/api/books/import`, {
+    const res = await fetch(`${API_BASE}/api/books/import`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ books: rows }),
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ books }),
     })
-    if (!data.ok) {
-      if (data.status === 401) {
+    if (!res.ok) {
+      if (res.status === 401) {
         throw new ApiError('Authentication required', { status: 401, code: 'unauthorized' })
       }
-      const errData = await data.json().catch(() => ({}))
+      if (res.status === 413) {
+        throw new ApiError('Too many rows in one file. The limit is 500.', { status: 413 })
+      }
+      const errData = await res.json().catch(() => ({}))
       throw new Error(errData.message || 'Import failed')
     }
-    return await data.json()
+    return await res.json()
   } catch (e) {
     if (e instanceof Error) throw e
     throw new Error('Import failed')

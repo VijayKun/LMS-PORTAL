@@ -69,6 +69,30 @@ static void test_null_arguments(void) {
   CHECK(json_escape("x", out, 0) == -1);
 }
 
+static void test_json_string_of_key_string(void) {
+  char out[32] = "stale";
+  CHECK(json_string_of_key("{\"title\":\"Clean Code\"}", "title", out, sizeof(out)));
+  CHECK(strcmp(out, "Clean Code") == 0);
+}
+
+static void test_json_string_of_key_number(void) {
+  char out[32] = "stale";
+  CHECK(json_string_of_key("{\"totalCopies\":3}", "totalCopies", out, sizeof(out)));
+  CHECK(strcmp(out, "3") == 0);
+}
+
+static void test_json_string_of_key_missing_clears_output(void) {
+  char out[32] = "stale";
+  CHECK(!json_string_of_key("{\"title\":\"Clean Code\"}", "description", out, sizeof(out)));
+  CHECK(out[0] == '\0');
+}
+
+static void test_json_string_of_key_escapes(void) {
+  char out[32] = "stale";
+  CHECK(json_string_of_key("{\"description\":\"a\\nb\"}", "description", out, sizeof(out)));
+  CHECK(strcmp(out, "a\nb") == 0);
+}
+
 int main(void) {
   printf("Running json_utils tests...\n");
   test_plain_string();
@@ -78,6 +102,10 @@ int main(void) {
   test_empty_string();
   test_buffer_too_small_is_safe();
   test_null_arguments();
+  test_json_string_of_key_string();
+  test_json_string_of_key_number();
+  test_json_string_of_key_missing_clears_output();
+  test_json_string_of_key_escapes();
 
   if (g_failures == 0) {
     printf("All json_utils tests passed.\n");

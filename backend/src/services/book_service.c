@@ -448,11 +448,25 @@ BookDeleteStatus book_service_delete(Database *db, const char *id, char *errbuf,
   return status;
 }
 
+static void append_import_code(char *results, size_t cap, const char *code) {
+  size_t len = strlen(results);
+  int written;
+  if (len == 0) {
+    written = snprintf(results + len, cap - len, "\"%s\"", code);
+  } else {
+    written = snprintf(results + len, cap - len, ",\"%s\"", code);
+  }
+  (void)written;
+}
+
 BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t json_len,
-                                          char *out, size_t out_size, char *errbuf,
-                                          size_t errlen) {
+                                           char *out, size_t out_size, char *errbuf,
+                                           size_t errlen) {
   (void)errbuf;
   (void)errlen;
+  if (out == NULL || out_size == 0) {
+    return BOOK_IMPORT_BUFFER_TOO_SMALL;
+  }
   if (json == NULL || json_len == 0 || json_len > BOOKS_IMPORT_JSON_MAX) {
     return BOOK_IMPORT_BUFFER_TOO_SMALL;
   }
@@ -462,23 +476,37 @@ BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t
 
   const char *array_key = "books";
   int book_count = json_array_count(json, array_key);
-  if (book_count <= 0 || book_count > BOOKS_IMPORT_MAX) {
+  if (book_count > BOOKS_IMPORT_MAX) {
+    if (errbuf != NULL && errlen > 0) {
+      snprintf(errbuf, errlen, "too many books: %d (max %d)", book_count, BOOKS_IMPORT_MAX);
+    }
+    return BOOK_IMPORT_TOO_MANY;
+  }
+  if (book_count <= 0) {
+    snprintf(out, out_size,
+             "{\"created\":0,\"duplicates\":0,\"failed\":0,\"results\":[]}");
     return BOOK_IMPORT_OK;
   }
 
   int created = 0, duplicates = 0, failed = 0;
+  char results[12288] = {0};
 
   for (int i = 0; i < book_count; i++) {
-    char book_json[8192];
+    char book_json[16384];
     int n = json_array_get(json, array_key, i, book_json, sizeof(book_json));
-    if (n <= 0) continue;
+    if (n <= 0) {
+      failed++;
+      append_import_code(results, sizeof(results), "failed");
+      continue;
+    }
 
     BookMutate book;
     memset(&book, 0, sizeof(book));
 
-    char title[512], author[512], isbn[512], category[512], publisher[512];
-    char pub_date[32], desc[1024], cover[512];
-    char copies[16], avail[16], year[16], branch[128];
+    char title[512] = {0}, author[512] = {0}, isbn[512] = {0};
+    char category[512] = {0}, publisher[512] = {0};
+    char pub_date[64] = {0}, desc[2048] = {0}, cover[2048] = {0};
+    char copies[32] = {0}, avail[32] = {0}, year[16] = {0}, branch[256] = {0};
 
     json_string_of_key(book_json, "title", title, sizeof(title));
     json_string_of_key(book_json, "author", author, sizeof(author));
@@ -489,37 +517,54 @@ BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t
     json_string_of_key(book_json, "description", desc, sizeof(desc));
     json_string_of_key(book_json, "cover", cover, sizeof(cover));
     json_string_of_key(book_json, "totalCopies", copies, sizeof(copies));
+    if (copies[0] == '\0') {
+      json_string_of_key(book_json, "copies", copies, sizeof(copies));
+    }
     json_string_of_key(book_json, "availableCopies", avail, sizeof(avail));
+    if (avail[0] == '\0') {
+      snprintf(avail, sizeof(avail), "%s", copies);
+    }
     json_string_of_key(book_json, "year", year, sizeof(year));
     json_string_of_key(book_json, "branchId", branch, sizeof(branch));
 
-    strncpy(book.title, title, BOOK_FIELD_MAX - 1);
-    strncpy(book.author, author, BOOK_FIELD_MAX - 1);
-    strncpy(book.isbn, isbn, BOOK_FIELD_MAX - 1);
-    strncpy(book.category, category, BOOK_FIELD_MAX - 1);
-    strncpy(book.publisher, publisher, BOOK_FIELD_MAX - 1);
-    strncpy(book.publication_date, pub_date, BOOK_FIELD_MAX - 1);
-    strncpy(book.description, desc, BOOK_FIELD_MAX - 1);
-    strncpy(book.cover, cover, BOOK_FIELD_MAX - 1);
-    strncpy(book.total_copies, copies, BOOK_FIELD_MAX - 1);
-    strncpy(book.available_copies, avail, BOOK_FIELD_MAX - 1);
-    strncpy(book.year, year, BOOK_FIELD_MAX - 1);
-    strncpy(book.branch_id, branch, BOOK_FIELD_MAX - 1);
+    snprintf(book.title, sizeof(book.title), "%s", title);
+    snprintf(book.author, sizeof(book.author), "%s", author);
+    snprintf(book.isbn, sizeof(book.isbn), "%s", isbn);
+    snprintf(book.category, sizeof(book.category), "%s", category);
+    snprintf(book.publisher, sizeof(book.publisher), "%s", publisher);
+    snprintf(book.publication_date, sizeof(book.publication_date), "%s", pub_date);
+    snprintf(book.description, sizeof(book.description), "%s", desc);
+    snprintf(book.cover, sizeof(book.cover), "%s", cover);
+    snprintf(book.total_copies, sizeof(book.total_copies), "%s", copies);
+    snprintf(book.available_copies, sizeof(book.available_copies), "%s", avail);
+    snprintf(book.year, sizeof(book.year), "%s", year);
+    snprintf(book.branch_id, sizeof(book.branch_id), "%s", branch);
 
     char idbuf[128];
     char single_err[256] = {0};
     BookCreateStatus cs = book_service_create(db, &book, idbuf, sizeof(idbuf),
                                                single_err, sizeof(single_err));
     switch (cs) {
-      case BOOK_CREATE_OK: created++; break;
-      case BOOK_CREATE_DUPLICATE: duplicates++; break;
-      default: failed++; break;
+      case BOOK_CREATE_OK:
+        created++;
+        append_import_code(results, sizeof(results), "ok");
+        break;
+      case BOOK_CREATE_DUPLICATE:
+        duplicates++;
+        append_import_code(results, sizeof(results), "duplicate");
+        break;
+      default:
+        fprintf(stderr, "[books] bulk row %d failed: %s\n", i + 1, single_err);
+        failed++;
+        append_import_code(results, sizeof(results), "failed");
+        break;
     }
   }
 
-  size_t written = snprintf(out, out_size,
-    "{\"created\":%d,\"duplicates\":%d,\"failed\":%d}", created, duplicates, failed);
-  if ((size_t)written >= out_size) {
+  int written = snprintf(out, out_size,
+    "{\"created\":%d,\"duplicates\":%d,\"failed\":%d,\"results\":[%s]}",
+    created, duplicates, failed, results);
+  if (written < 0 || (size_t)written >= out_size) {
     return BOOK_IMPORT_BUFFER_TOO_SMALL;
   }
   return BOOK_IMPORT_OK;

@@ -12,7 +12,7 @@
 #include "database/db.h"
 
 /** Maximum length of any single editable book field. */
-#define BOOK_FIELD_MAX 256
+#define BOOK_FIELD_MAX 1024
 
 /**
  * Editable fields used by create/update. Everything stays text so JSON parsing
@@ -179,7 +179,8 @@ typedef enum {
   BOOK_IMPORT_OK = 0,
   BOOK_IMPORT_DB_UNAVAILABLE,
   BOOK_IMPORT_QUERY_FAILED,
-  BOOK_IMPORT_BUFFER_TOO_SMALL
+  BOOK_IMPORT_BUFFER_TOO_SMALL,
+  BOOK_IMPORT_TOO_MANY
 } BookImportStatus;
 
 #define BOOKS_IMPORT_MAX 500

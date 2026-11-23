@@ -26,9 +26,15 @@ export const importRowSchema = z.object({
   publisher: shortText(200),
   copies: z.number().int().min(1).max(9999),
   branchId: z.string().nullish(),
+  publicationDate: shortText(30).optional(),
+  description: shortText(1000).optional(),
+  cover: shortText(2048).optional(),
+  pageCount: z.number().int().min(0).optional(),
 })
 
-export const importRowsSchema = z.array(importRowSchema).max(5000)
+/** Must stay in sync with BOOKS_IMPORT_MAX in backend/src/services/book_service.h. */
+export const importRowsSchema = z.array(importRowSchema).max(500)
+export const MAX_IMPORT_ROWS = 500
 
 /** Parses `payload` with `schema`, throwing a plain Error on failure. */
 export function parseWith(schema, payload) {

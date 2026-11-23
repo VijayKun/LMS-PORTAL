@@ -144,8 +144,27 @@ static void test_bad_arguments(void) {
   CHECK(json_array_of_objects(keys, NULL, NULL, 1, 1, out, sizeof(out)) == -1);
 }
 
+static void test_read_array_count_and_get(void) {
+  const char *j =
+      "{\"books\":[{\"title\":\"A\",\"tags\":[\"x\",\"y\"]},{\"title\":\"B\"}],\"n\":2}";
+  CHECK(json_array_count(j, "books") == 2);
+
+  char buf[256] = {0};
+  CHECK(json_array_get(j, "books", 0, buf, sizeof(buf)) > 0);
+  CHECK(strstr(buf, "\"title\":\"A\"") != NULL);
+  CHECK(strstr(buf, "\"tags\":[\"x\",\"y\"]") != NULL);
+
+  CHECK(json_array_get(j, "books", 1, buf, sizeof(buf)) > 0);
+  CHECK(strcmp(buf, "{\"title\":\"B\"}") == 0);
+
+  CHECK(json_array_get(j, "books", 2, buf, sizeof(buf)) == -1);
+  CHECK(json_array_count("{\"books\":[]}", "books") == 0);
+  CHECK(json_array_count("{\"books\":[{\"a\":1,\"b\":2}]}", "books") == 1);
+}
+
 int main(void) {
   printf("Running books JSON tests...\n");
+  test_read_array_count_and_get();
   test_empty_result();
   test_string_and_number();
   test_multiple_rows();

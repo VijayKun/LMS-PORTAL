@@ -495,7 +495,7 @@ void book_controller_import(AppContext *app, struct mg_connection *c,
   body[hm->body.len] = '\0';
 
   char errbuf[256] = {0};
-  char out[1024];
+  char out[16384];
 
   BookImportStatus status = book_service_import_bulk(app->db, body, hm->body.len,
                                                      out, sizeof(out), errbuf,
@@ -512,6 +512,9 @@ void book_controller_import(AppContext *app, struct mg_connection *c,
       break;
     case BOOK_IMPORT_BUFFER_TOO_SMALL:
       send_json_error(c, 413, "payload_too_large", "The request body is too large.");
+      break;
+    case BOOK_IMPORT_TOO_MANY:
+      send_json_error(c, 413, "too_many_books", "An import may contain at most 500 books. Split the file and try again.");
       break;
     case BOOK_IMPORT_QUERY_FAILED:
     default:

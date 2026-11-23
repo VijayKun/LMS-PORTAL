@@ -231,97 +231,119 @@ int json_object_of_row(const char *const *keys, const int *kinds,
 }
 
 int json_array_count(const char *json, const char *key) {
-  if (json == NULL) return 0;
+  if (json == NULL || key == NULL) return 0;
   size_t len = strlen(json);
-  for (size_t i = 0; i + strlen(key) < len; i++) {
-    if (strncmp(json + i, "\"" , 1) == 0 &&
-        strncmp(json + i + 1, key, strlen(key)) == 0 &&
-        strncmp(json + i + 1 + strlen(key), "\":", 2) == 0) {
-      size_t arr_start = i + 1 + strlen(key) + 2;
-      while (arr_start < len && (json[arr_start] == ' ' || json[arr_start] == '\n' ||
-             json[arr_start] == '\r' || json[arr_start] == '\t')) arr_start++;
-      if (json[arr_start] != '[') continue;
-      size_t pos = arr_start + 1;
-      int depth = 1;
-      while (pos < len && depth > 0) {
-        if (json[pos] == '[' || json[pos] == '{') depth++;
-        else if (json[pos] == ']' || json[pos] == '}') depth--;
-        else if (json[pos] == '"' || json[pos] == '\'') {
-          char quote = json[pos];
-          pos++;
-          while (pos < len && json[pos] != quote) {
-            if (json[pos] == '\\') pos++;
-            pos++;
-          }
-        }
-        pos++;
-      }
-      if (depth != 0) continue;
-      int count = 0;
-      bool in_string = false;
-      for (size_t j = arr_start + 1; j < pos - 1; j++) {
-        char c = json[j];
-        if (c == '"' && (j == 0 || json[j-1] != '\\')) in_string = !in_string;
-        if (!in_string && c == ',') count++;
-      }
-      return count + 1;
+  size_t key_len = strlen(key);
+  for (size_t i = 0; i + key_len + 2 < len; i++) {
+    if (json[i] != '"' || strncmp(json + i + 1, key, key_len) != 0 ||
+        json[i + 1 + key_len] != '"' || json[i + 2 + key_len] != ':') {
+      continue;
     }
+    size_t pos = i + 3 + key_len;
+    while (pos < len && isspace((unsigned char)json[pos])) pos++;
+    if (json[pos] != '[') continue;
+
+    int depth = 0;
+    int count = 0;
+    bool has_element = false;
+    bool in_string = false;
+    for (; pos < len; pos++) {
+      char c = json[pos];
+      if (in_string) {
+        if (c == '\\' && pos + 1 < len) {
+          pos++;
+          continue;
+        }
+        if (c == '"') in_string = false;
+        continue;
+      }
+      if (c == '"') {
+        if (depth == 1) has_element = true;
+        in_string = true;
+        continue;
+      }
+      if (c == '[' || c == '{') {
+        if (depth == 1) has_element = true;
+        depth++;
+        continue;
+      }
+      if (c == ']' || c == '}') {
+        depth--;
+        if (depth == 0) return has_element ? count + 1 : 0;
+        continue;
+      }
+      if (c == ',') {
+        if (depth == 1) count++;
+        continue;
+      }
+      if (depth == 1 && !isspace((unsigned char)c)) has_element = true;
+    }
+    return 0;
   }
   return 0;
 }
 
 int json_array_get(const char *json, const char *key, int index, char *out, size_t out_size) {
-  if (json == NULL || key == NULL || out == NULL || out_size == 0) return -1;
-  if (index < 0) return -1;
-
+  if (json == NULL || key == NULL || out == NULL || out_size == 0 || index < 0) return -1;
   size_t len = strlen(json);
-  for (size_t i = 0; i + strlen(key) < len; i++) {
-    if (strncmp(json + i, "\"" , 1) == 0 &&
-        strncmp(json + i + 1, key, strlen(key)) == 0 &&
-        strncmp(json + i + 1 + strlen(key), "\":", 2) == 0) {
-      size_t arr_start = i + 1 + strlen(key) + 2;
-      while (arr_start < len && (json[arr_start] == ' ' || json[arr_start] == '\n' ||
-             json[arr_start] == '\r' || json[arr_start] == '\t')) arr_start++;
-      if (json[arr_start] != '[') continue;
+  size_t key_len = strlen(key);
+  for (size_t i = 0; i + key_len + 2 < len; i++) {
+    if (json[i] != '"' || strncmp(json + i + 1, key, key_len) != 0 ||
+        json[i + 1 + key_len] != '"' || json[i + 2 + key_len] != ':') {
+      continue;
+    }
+    size_t pos = i + 3 + key_len;
+    while (pos < len && isspace((unsigned char)json[pos])) pos++;
+    if (json[pos] != '[') continue;
+    pos++;
 
-      size_t pos = arr_start + 1;
-      int depth = 1;
-      char obj_buf[8192];
-      int obj_len = 0;
+    int element = 0;
+    for (;;) {
+      while (pos < len && (isspace((unsigned char)json[pos]) || json[pos] == ',')) pos++;
+      if (pos >= len || json[pos] == ']') return -1;
+
+      size_t start = pos;
+      int depth = 0;
       bool in_string = false;
-
-      while (pos < len && depth > 0) {
+      while (pos < len) {
         char c = json[pos];
-        if (c == '"' && (pos == 0 || json[pos-1] != '\\')) in_string = !in_string;
-        if (!in_string) {
-          if (c == '{') {
-            if (depth == 1) { obj_len = 0; }
-            if (depth == 1 && obj_len < (int)sizeof(obj_buf) - 1) {
-              obj_buf[obj_len++] = c;
-            }
-            depth++;
-          } else if (c == '}') {
-            depth--;
-            if (depth == 1) {
-              obj_buf[obj_len] = '\0';
-              if (index == 0) {
-                strncpy(out, obj_buf, out_size - 1);
-                out[out_size - 1] = '\0';
-                return obj_len;
-              }
-              index--;
-            }
-          } else if (depth == 1 && obj_len < (int)sizeof(obj_buf) - 1) {
-            obj_buf[obj_len++] = c;
+        if (in_string) {
+          if (c == '\\' && pos + 1 < len) {
+            pos += 2;
+            continue;
           }
-        } else {
-          if (obj_len < (int)sizeof(obj_buf) - 1) {
-            obj_buf[obj_len++] = c;
-          }
+          if (c == '"') in_string = false;
+          pos++;
+          continue;
         }
+        if (c == '"') {
+          in_string = true;
+          pos++;
+          continue;
+        }
+        if (c == '{' || c == '[') {
+          depth++;
+          pos++;
+          continue;
+        }
+        if (c == '}' || c == ']') {
+          depth--;
+          pos++;
+          if (depth == 0) break;
+          continue;
+        }
+        if (c == ',' && depth == 0) break;
         pos++;
       }
-      return -1;
+
+      if (element == index) {
+        size_t n = pos - start;
+        if (n + 1 > out_size) return -1;
+        memcpy(out, json + start, n);
+        out[n] = '\0';
+        return (int)n;
+      }
+      element++;
     }
   }
   return -1;
@@ -329,39 +351,56 @@ int json_array_get(const char *json, const char *key, int index, char *out, size
 
 bool json_string_of_key(const char *json, const char *key, char *out, size_t out_size) {
   if (json == NULL || key == NULL || out == NULL || out_size == 0) return false;
+  out[0] = '\0'; /* a missing key must never leave a stale/uninitialised value */
+
+  size_t key_len = strlen(key);
   size_t len = strlen(json);
-  for (size_t i = 0; i + strlen(key) < len; i++) {
-    if (json[i] == '"' && strncmp(json + i + 1, key, strlen(key)) == 0 &&
-        json[i + 1 + strlen(key)] == '"' && json[i + 2 + strlen(key)] == ':') {
-      size_t val_start = i + 2 + strlen(key);
-      while (val_start < len && (json[val_start] == ' ' || json[val_start] == '\n' ||
-             json[val_start] == '\r' || json[val_start] == '\t')) val_start++;
-      if (json[val_start] != '"') return false;
+  for (size_t i = 0; i + key_len + 2 < len; i++) {
+    if (json[i] != '"' || strncmp(json + i + 1, key, key_len) != 0 ||
+        json[i + 1 + key_len] != '"' || json[i + 2 + key_len] != ':') {
+      continue;
+    }
+
+    size_t val_start = i + 3 + key_len; /* skip closing quote, colon and spaces */
+    while (val_start < len && isspace((unsigned char)json[val_start])) val_start++;
+    size_t val_end = val_start;
+
+    if (json[val_start] == '"') {
       val_start++;
-      size_t val_end = val_start;
+      val_end = val_start;
       while (val_end < len && json[val_end] != '"') {
         if (json[val_end] == '\\' && val_end + 1 < len) val_end++;
         val_end++;
       }
-      size_t copy_len = val_end - val_start;
-      if (copy_len >= out_size) return false;
-      for (size_t j = 0; j < copy_len; j++) {
-        out[j] = json[val_start + j];
-        if (json[val_start + j] == '\\' && j + 1 < copy_len) {
-          switch (json[val_start + j + 1]) {
-            case 'n': out[j] = '\n'; break;
-            case 'r': out[j] = '\r'; break;
-            case 't': out[j] = '\t'; break;
-            case '"': out[j] = '"'; break;
-            case '\\': out[j] = '\\'; break;
-            default: break;
-          }
-          if (j + 1 < copy_len) j++;
+    } else {
+      /* Numbers, true/false and null are copied verbatim as text. */
+      while (val_end < len && !isspace((unsigned char)json[val_end]) &&
+             json[val_end] != ',' && json[val_end] != '}' && json[val_end] != ']') {
+        val_end++;
+      }
+    }
+
+    size_t j = 0;
+    for (size_t k = val_start; k < val_end && j + 1 < out_size; k++) {
+      char ch = json[k];
+      if (ch == '\\' && k + 1 < val_end) {
+        k++;
+        switch (json[k]) {
+          case 'n': ch = '\n'; break;
+          case 'r': ch = '\r'; break;
+          case 't': ch = '\t'; break;
+          case 'b': ch = '\b'; break;
+          case 'f': ch = '\f'; break;
+          case '"': ch = '"'; break;
+          case '\\': ch = '\\'; break;
+          case '/': ch = '/'; break;
+          default: ch = json[k]; break;
         }
       }
-      out[copy_len] = '\0';
-      return true;
+      out[j++] = ch;
     }
+    out[j] = '\0';
+    return true;
   }
   return false;
 }

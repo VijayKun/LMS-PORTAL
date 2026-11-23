@@ -17,9 +17,11 @@ import Breadcrumbs from '../../components/ui/Breadcrumbs.jsx'
 import { importBooksRequest, lookupBookByISBN } from '../../services/api.js'
 import { parseCsv, toCsv, downloadTextFile } from '../../utils/csv.js'
 import { buildImportRows } from '../../utils/importRows.js'
+import { MAX_IMPORT_ROWS } from '../../validation/schemas.js'
 import readXlsxFile from 'read-excel-file/browser'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
+const ENRICH_CONCURRENCY = 5
 
 const STEPS = [
   { label: 'Reading file', note: 'Parsing the spreadsheet rows' },
@@ -34,7 +36,7 @@ const COVER_COLORS = ['#2F4858', '#33658A', '#4527A0', '#2E7D32', '#AD1457', '#E
 export default function BulkImport() {
   usePageTitle('Bulk Import')
   const { toast } = useToast()
-  const { state, addBook } = useLibrary()
+  const { state, addBook, remote, refreshFromBackend } = useLibrary()
 
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
@@ -62,23 +64,6 @@ export default function BulkImport() {
         table = parseCsv(await selected.text())
       } else if (name.endsWith('.xlsx')) {
         const result = await readXlsxFile(selected)
-
-        const extractRows = (obj) => {
-          if (!obj || typeof obj !== 'object') return null
-          const keys = Object.keys(obj)
-          // Check if this looks like a header row (contains Book Name, Title, etc.)
-          const normalized = keys.map(k => String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''))
-          const hasTitle = normalized.some(k => ['bookname', 'title', 'book', 'name', 'booktitle'].includes(k))
-          const hasIsbn = normalized.some(k => ['isbn', 'isbn13', 'isbn10'].includes(k))
-          if (hasTitle && hasIsbn) return obj
-
-          // This might be a row object with keys like 'sheet' and 'data'
-          // Try to find the actual data
-          if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
-            return extractRows(obj.data)
-          }
-          return null
-        }
 
         const flattenResult = (res) => {
           if (Array.isArray(res)) {
@@ -137,6 +122,11 @@ export default function BulkImport() {
       return
     }
 
+    if (built.length > MAX_IMPORT_ROWS) {
+      toast(`This file has ${built.length} rows. The limit is ${MAX_IMPORT_ROWS} per import — please split it.`, 'error')
+      return
+    }
+
     timers.current.forEach(clearTimeout)
     setFile(selected)
     setRows(built)
@@ -144,35 +134,38 @@ export default function BulkImport() {
     setStep(-1)
   }
 
-  /** Fill title-level details that the spreadsheet left blank from Google Books. */
+  /** Keep spreadsheet values authoritative; fill only what is missing from Google Books. */
+  function mergeGoogleInfo(row, info) {
+    if (!info?.found) return row
+    const prefer = (current, fallback, placeholder) =>
+      current && current !== placeholder ? current : fallback || current
+    return {
+      ...row,
+      author: prefer(row.author, info.author, 'Unknown'),
+      category: prefer(row.category, info.category, 'General'),
+      publisher: prefer(row.publisher, info.publisher, '—'),
+      publicationDate: row.publicationDate || info.publicationDate || '',
+      description: row.description || info.description || '',
+      cover: row.cover || info.cover || '',
+      pageCount: row.pageCount || info.pageCount || 0,
+    }
+  }
+
+  /** Look up every ready row so even complete spreadsheets get full metadata. */
   async function enrichRows(list) {
-    const enriched = []
-    for (const row of list) {
-      const incomplete =
-        row.initial === 'ready' &&
-        (row.author === 'Unknown' || row.category === 'General' || row.publisher === '—')
-      if (!incomplete) {
-        enriched.push(row)
-        continue
-      }
+    const indices = list.reduce((acc, row, index) => {
+      if (row.initial === 'ready') acc.push(index)
+      return acc
+    }, [])
+    const enriched = [...list]
 
-      const info = await lookupBookByISBN(row.isbn)
-      if (!info.found) {
-        enriched.push(row)
-        continue
-      }
-
-      const prefer = (current, fallback, placeholder) =>
-        current && current !== placeholder ? current : fallback || current
-
-      enriched.push({
-        ...row,
-        author: prefer(row.author, info.author, 'Unknown'),
-        category: prefer(row.category, info.category, 'General'),
-        publisher: prefer(row.publisher, info.publisher, '—'),
-        publicationDate: info.publicationDate || '',
-        description: info.description || '',
-        cover: info.cover || '',
+    for (let i = 0; i < indices.length; i += ENRICH_CONCURRENCY) {
+      const batch = indices.slice(i, i + ENRICH_CONCURRENCY)
+      const results = await Promise.all(
+        batch.map((index) => lookupBookByISBN(list[index].isbn).catch(() => null)),
+      )
+      batch.forEach((index, position) => {
+        enriched[index] = mergeGoogleInfo(enriched[index], results[position])
       })
     }
     return enriched
@@ -203,33 +196,52 @@ export default function BulkImport() {
       setStep(4)
 
       const ready = enriched.filter((r) => r.initial === 'ready')
-      // Validated again with zod at the API boundary before the "request".
-      await importBooksRequest(ready)
-      if (!Array.isArray(ready)) {
-        throw new Error('Import returned unexpected format')
-      }
-      ready.forEach((r, i) => {
-        if (!r) return
-        addBook({
-          title: r.title || '',
-          author: r.author || '',
-          isbn: r.isbn || '',
-          category: r.category || 'General',
-          publisher: r.publisher || '',
-          publicationDate: r.publicationDate || '',
-          description: r.description || '',
-          cover: r.cover || COVER_COLORS[i % COVER_COLORS.length],
-          totalCopies: r.copies || 1,
-          availableCopies: r.copies || 1,
-          branchId: r.branchId || null,
-        })
-      })
+      let finalRows
 
-      const failedCount = enriched.filter((r) => r.result === 'failed').length
-      const skippedCount = enriched.filter((r) => r.result === 'skipped').length
+      if (remote) {
+        // One atomic request; the backend owns the authoritative result codes.
+        const response = await importBooksRequest(ready)
+        const codes = Array.isArray(response?.results) ? response.results : []
+        const codeByKey = new Map(ready.map((r, i) => [r.key, codes[i] || 'failed']))
+        finalRows = enriched.map((r) => {
+          if (r.initial !== 'ready') return r
+          const code = codeByKey.get(r.key)
+          return {
+            ...r,
+            result: code === 'ok' ? 'imported' : code === 'duplicate' ? 'skipped' : 'failed',
+          }
+        })
+        await refreshFromBackend()
+      } else {
+        // Offline demo mode: no request, apply the parsed rows locally.
+        ready.forEach((r, i) => {
+          addBook({
+            title: r.title || '',
+            author: r.author || '',
+            isbn: r.isbn || '',
+            category: r.category || 'General',
+            publisher: r.publisher || '',
+            publicationDate: r.publicationDate || '',
+            description: r.description || '',
+            cover: r.cover || COVER_COLORS[i % COVER_COLORS.length],
+            totalCopies: r.copies || 1,
+            availableCopies: r.copies || 1,
+            branchId: r.branchId || null,
+          })
+        })
+        finalRows = enriched.map((r) =>
+          r.initial === 'ready' ? { ...r, result: 'imported' } : r,
+        )
+      }
+
+      setRows(finalRows)
+
+      const importedCount = finalRows.filter((r) => r.result === 'imported').length
+      const failedCount = finalRows.filter((r) => r.result === 'failed').length
+      const skippedCount = finalRows.filter((r) => r.result === 'skipped').length
       setPhase('done')
       toast(
-        `Bulk import completed: ${ready.length} added, ${failedCount} failed, ${skippedCount} skipped.`,
+        `Bulk import completed: ${importedCount} added, ${failedCount} failed, ${skippedCount} skipped.`,
         'success',
       )
     } catch (e) {

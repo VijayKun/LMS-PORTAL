@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mapHeaders, isValidIsbn, buildImportRows } from './importRows.js'
+import { toBookImportPayload } from '../services/mappers.js'
 
 const branches = [
   { id: 'cs', name: 'Computer Science & Engineering' },
@@ -121,9 +122,46 @@ describe('buildImportRows', () => {
   it('clamps the copies count to a sane maximum', () => {
     const rows = buildImportRows(
       [['Book Name', 'ISBN', 'Copies'], ['Clean Code', '9780132350884', '99999999']],
-      { existingBooks: [], branches },
+      { branches },
     )
     expect(rows[0].copies).toBe(9999)
     expect(rows[0].initial).toBe('ready')
   })
 })
+
+describe('toBookImportPayload', () => {
+  it('sends the field names and string counts the backend reads', () => {
+    const payload = toBookImportPayload({
+      title: 'Clean Code',
+      isbn: '9780132350884',
+      author: 'Robert C. Martin',
+      category: 'Computers',
+      publisher: 'Pearson Education',
+      copies: 3,
+      branchId: 'cs',
+      publicationDate: '2009-01-01',
+      description: 'A book about code',
+      cover: 'https://books.google.com/cover.jpg',
+    })
+    expect(payload).toMatchObject({
+      title: 'Clean Code',
+      totalCopies: '3',
+      availableCopies: '3',
+      publicationDate: '2009-01-01',
+      year: '2009',
+      branchId: 'cs',
+    })
+    expect(payload).not.toHaveProperty('copies')
+    expect(payload).not.toHaveProperty('initial')
+  })
+
+  it('normalises partial Google Books dates and defaults bad counts', () => {
+    expect(toBookImportPayload({ publicationDate: '2009' }).publicationDate).toBe('2009-01-01')
+    expect(toBookImportPayload({ publicationDate: '2009-03' }).publicationDate).toBe('2009-03-01')
+    const payload = toBookImportPayload({ copies: 'not-a-number' })
+    expect(payload.totalCopies).toBe('1')
+    expect(payload.availableCopies).toBe('1')
+    expect(payload.publicationDate).toBe('')
+  })
+})
+
