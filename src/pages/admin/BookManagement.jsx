@@ -219,6 +219,48 @@ export default function BookManagement() {
               <div className="info-row"><span className="info-label">Copies</span><span className="info-value">{availableCopiesOf(state, viewing)} / {viewing.totalCopies} available</span></div>
             </div>
             <p className="text-secondary" style={{ gridColumn: '1 / -1' }}>{viewing.description}</p>
+            {Object.keys(viewing.googleMetadata || {}).length > 0 && (
+              <div className="info-list" style={{ gridColumn: '1 / -1' }}>
+                <div className="section-title mb-2">Google Books details</div>
+                {[
+                  ['Subtitle', (m) => m.subtitle],
+                  ['Authors', (m) => m.authors],
+                  ['Categories', (m) => m.categories],
+                  ['Language', (m) => m.language],
+                  ['Pages', (m) => m.pageCount],
+                  ['Rating', (m) => m.averageRating && `${m.averageRating} (${m.ratingsCount || 0} ratings)`],
+                  ['Print type', (m) => m.printType],
+                  ['Dimensions', (m) => m.dimensions],
+                  ['Identifiers', (m) => m.industryIdentifiers],
+                  ['Availability', (m) => m.saleability],
+                  ['Price', (m) => m.listPrice],
+                  ['Ebook', (m) => m.isEbook],
+                  ['Viewability', (m) => m.viewability],
+                ].map(([label, read]) => {
+                  const value = read(viewing.googleMetadata)
+                  return value ? (
+                    <div className="info-row" key={label}>
+                      <span className="info-label">{label}</span>
+                      <span className="info-value">{String(value)}</span>
+                    </div>
+                  ) : null
+                })}
+                {(viewing.googleMetadata.previewLink || viewing.googleMetadata.infoLink) && (
+                  <div className="info-row">
+                    <span className="info-label">Preview</span>
+                    <span className="info-value">
+                      <a
+                        href={viewing.googleMetadata.previewLink || viewing.googleMetadata.infoLink}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open in Google Books
+                      </a>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </Modal>

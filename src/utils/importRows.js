@@ -75,6 +75,9 @@ export function mergeBookInfo(row, info) {
     description: row.description || info.description || '',
     cover: row.cover || info.cover || '',
     pageCount: row.pageCount || info.pageCount || 0,
+    subtitle: info.subtitle || '',
+    language: info.language || '',
+    googleMetadata: info.googleMetadata || {},
   }
 }
 

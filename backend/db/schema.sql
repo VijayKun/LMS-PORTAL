@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS books (
   available_copies integer NOT NULL DEFAULT 1 CHECK (available_copies >= 0),
   year             smallint NOT NULL DEFAULT 0,
   branch_id        text REFERENCES branches (id) ON DELETE SET NULL,
+  google_metadata  jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
   CHECK (available_copies <= total_copies)

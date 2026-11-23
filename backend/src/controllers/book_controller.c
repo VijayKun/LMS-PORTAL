@@ -27,7 +27,7 @@
 #define BOOK_ID_MAX 128
 
 /* Upper bound for a create/update request body. */
-#define BOOK_BODY_MAX 8192
+#define BOOK_BODY_MAX 65536
 
 /* Emit the response for a single-book lookup (shared by id and isbn). */
 static void send_get_status(struct mg_connection *c, BookGetStatus status,
@@ -242,7 +242,10 @@ void book_controller_lookup_isbn(AppContext *app, struct mg_connection *c,
   escape_or_empty(info.description, description, sizeof(description));
   escape_or_empty(info.cover, cover, sizeof(cover));
 
-  size_t size = 16384;
+  char metadata[ISBN_META_JSON_MAX];
+  isbn_service_metadata_json(&info, metadata, sizeof(metadata));
+
+  size_t size = 131072;
   char *buffer = malloc(size);
   if (buffer == NULL) {
     send_json_error(c, 500, "server_error", "The server ran out of memory.");
@@ -253,9 +256,10 @@ void book_controller_lookup_isbn(AppContext *app, struct mg_connection *c,
       buffer, size,
       "{\"isbn\":\"%s\",\"found\":true,\"title\":\"%s\",\"author\":\"%s\","
       "\"publisher\":\"%s\",\"category\":\"%s\",\"publicationDate\":\"%s\","
-      "\"description\":\"%s\",\"cover\":\"%s\",\"pageCount\":%d}",
+      "\"description\":\"%s\",\"cover\":\"%s\",\"pageCount\":%d,"
+      "\"googleMetadata\":%s}",
       info.isbn, title, author, publisher, category, date, description, cover,
-      info.page_count);
+      atoi(info.page_count), metadata);
 
   if (written < 0 || (size_t)written >= size) {
     free(buffer);
@@ -312,6 +316,7 @@ static bool parse_book_body(AppContext *app, struct mg_connection *c,
       {"total_copies", out->total_copies, sizeof(out->total_copies)},
       {"available_copies", out->available_copies, sizeof(out->available_copies)},
       {"year", out->year, sizeof(out->year)},
+      {"google_metadata", out->google_metadata, sizeof(out->google_metadata)},
   };
 
   for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
@@ -485,12 +490,16 @@ void book_controller_import(AppContext *app, struct mg_connection *c,
   Session *session = auth_require_admin(app, c, hm);
   if (session == NULL) return;
 
-  if (hm->body.len == 0 || hm->body.len > 1048576) {
+  if (hm->body.len == 0 || hm->body.len > BOOKS_IMPORT_JSON_MAX) {
     send_json_error(c, 400, "invalid_body", "A JSON body with books array is required.");
     return;
   }
 
-  char body[1048577];
+  char *body = malloc(hm->body.len + 1);
+  if (body == NULL) {
+    send_json_error(c, 500, "server_error", "The server ran out of memory.");
+    return;
+  }
   memcpy(body, hm->body.buf, hm->body.len);
   body[hm->body.len] = '\0';
 
@@ -500,6 +509,7 @@ void book_controller_import(AppContext *app, struct mg_connection *c,
   BookImportStatus status = book_service_import_bulk(app->db, body, hm->body.len,
                                                      out, sizeof(out), errbuf,
                                                      sizeof(errbuf));
+  free(body);
 
   switch (status) {
     case BOOK_IMPORT_OK:

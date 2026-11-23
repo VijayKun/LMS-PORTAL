@@ -11,6 +11,16 @@ const num = (value, fallback = 0) => {
 }
 const dateOnly = (value) => (value ? String(value).slice(0, 10) : null)
 
+function parseGoogleMetadata(value) {
+  if (!value) return {}
+  if (typeof value === 'object') return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return {}
+  }
+}
+
 export function mapBook(row = {}) {
   return {
     id: text(row.id),
@@ -26,6 +36,7 @@ export function mapBook(row = {}) {
     availableCopies: num(row.available_copies),
     year: num(row.year),
     branchId: row.branch_id || null,
+    googleMetadata: parseGoogleMetadata(row.google_metadata),
   }
 }
 
@@ -126,6 +137,7 @@ export function toBookPayload(book = {}) {
     available_copies: String(book.availableCopies ?? book.totalCopies ?? 1),
     year: String(book.year ?? 0),
     branch_id: book.branchId || '',
+    google_metadata: JSON.stringify(book.googleMetadata || {}),
   }
 }
 
@@ -163,6 +175,7 @@ export function toBookImportPayload(row = {}) {
     availableCopies: String(copies),
     year: Number(year) <= 3000 ? year : '0',
     branchId: row.branchId || '',
+    googleMetadata: JSON.stringify(row.googleMetadata || {}),
   }
 }
 

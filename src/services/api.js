@@ -117,18 +117,67 @@ async function googleBooksDirect(isbn) {
     const data = await res.json()
     const volume = data?.items?.[0]?.volumeInfo
     if (!volume?.title) return null
-    const thumbnail = volume.imageLinks?.thumbnail || volume.imageLinks?.smallThumbnail || ''
+    const item = data.items[0]
+    const links = volume.imageLinks || {}
+    const thumbnail = links.thumbnail || links.smallThumbnail || ''
+    const cover = thumbnail.replace(/^http:/, 'https:')
+    const dims = volume.dimensions || {}
+    const sale = item.saleInfo || {}
+    const access = item.accessInfo || {}
+    const price = sale.listPrice || {}
+    const authors = volume.authors || []
+    const categories = volume.categories || []
+    const googleMetadata = {
+      isbn,
+      volumeId: item.id || '',
+      title: volume.title,
+      subtitle: volume.subtitle || '',
+      author: authors[0] || '',
+      authors: authors.join(', '),
+      category: categories[0] || '',
+      categories: categories.join(', '),
+      industryIdentifiers: (volume.industryIdentifiers || [])
+        .map((id) => `${id.type}:${id.identifier}`)
+        .join(','),
+      publisher: volume.publisher || '',
+      publishedDate: volume.publishedDate || '',
+      description: volume.description || '',
+      textSnippet: item.searchInfo?.textSnippet || '',
+      cover,
+      coverLarge: (links.extraLarge || links.large || links.medium || cover).replace(/^http:/, 'https:'),
+      language: volume.language || '',
+      printType: volume.printType || '',
+      maturityRating: volume.maturityRating || '',
+      averageRating: String(volume.averageRating ?? ''),
+      ratingsCount: String(volume.ratingsCount ?? ''),
+      pageCount: String(volume.pageCount ?? ''),
+      dimensions: dims.height && dims.width
+        ? `${dims.height} x ${dims.width}${dims.thickness ? ' x ' + dims.thickness : ''}`
+        : '',
+      previewLink: volume.previewLink || '',
+      infoLink: volume.infoLink || '',
+      canonicalVolumeLink: volume.canonicalVolumeLink || '',
+      saleability: sale.saleability || '',
+      isEbook: String(sale.isEbook ?? ''),
+      listPrice: price.amount ? `${price.amount} ${price.currencyCode || ''}`.trim() : '',
+      buyLink: sale.buyLink || '',
+      viewability: access.viewability || '',
+      epubAvailable: String(access.epub?.isAvailable ?? ''),
+      pdfAvailable: String(access.pdf?.isAvailable ?? ''),
+      webReaderLink: access.webReaderLink || '',
+    }
     return {
       isbn,
       found: true,
       title: volume.title,
-      author: volume.authors?.[0] || '',
-      category: volume.categories?.[0] || '',
+      author: authors[0] || '',
+      category: categories[0] || '',
       publisher: volume.publisher || '',
       publicationDate: normalizeDate(volume.publishedDate),
       description: volume.description || '',
-      cover: thumbnail.replace(/^http:/, 'https:'),
+      cover,
       pageCount: Number(volume.pageCount) || 0,
+      googleMetadata,
     }
   } catch {
     return null
@@ -170,6 +219,7 @@ export async function lookupBookByISBN(isbn) {
           description: data.description || '',
           cover: data.cover || '',
           pageCount: Number(data.pageCount) || 0,
+          googleMetadata: data.googleMetadata || {},
         }
       }
     }

@@ -3,6 +3,7 @@
  */
 #include "services/book_service.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +17,7 @@
  */
 #define BOOK_COLUMNS                                                                    \
   "id, title, author, isbn, category, publisher, publication_date, description, cover, " \
-  "year, branch_id, total_copies, available_copies"
+  "year, branch_id, total_copies, available_copies, google_metadata"
 
 /* Same columns as the catalog list, restricted to one row. */
 #define BOOK_BY_ID_SQL \
@@ -213,6 +214,23 @@ static bool parse_optional_int(const char *s, long min, long max, long *out) {
   return true;
 }
 
+/* Google Books often returns just a year or year-month; pad to a real date. */
+static void normalize_partial_date(char *value, size_t cap) {
+  if (value == NULL || cap == 0) return;
+  size_t len = strlen(value);
+  if (len == 4) {
+    for (size_t i = 0; i < len; i++) {
+      if (!isdigit((unsigned char)value[i])) return;
+    }
+    snprintf(value, cap, "%s-01-01", value);
+  } else if (len == 7 && value[4] == '-') {
+    for (size_t i = 0; i < len; i++) {
+      if (i != 4 && !isdigit((unsigned char)value[i])) return;
+    }
+    snprintf(value, cap, "%s-01", value);
+  }
+}
+
 /* "" passes; otherwise it must be a real calendar date (YYYY-MM-DD). */
 static bool valid_date(const char *s) {
   if (s == NULL || s[0] == '\0') {
@@ -302,9 +320,10 @@ static bool validate_book(const BookMutate *b, bool require_basic, char *errbuf,
 #define BOOK_INSERT_SQL                                                    \
   "INSERT INTO public.books"                                               \
   " (id, title, author, isbn, category, publisher, publication_date,"      \
-  "  description, cover, total_copies, available_copies, year, branch_id)" \
+  "  description, cover, total_copies, available_copies, year, branch_id," \
+  "  google_metadata)"                                                     \
   " VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9,"  \
-  " $10, $11, $12)"                                                        \
+  " $10, $11, $12, $13)"                                                   \
   " RETURNING id"
 
 BookCreateStatus book_service_create(Database *db, const BookMutate *book, char *id_out,
@@ -321,7 +340,7 @@ BookCreateStatus book_service_create(Database *db, const BookMutate *book, char 
 
   /* Empty optional strings fall back to the schema defaults; an empty
    * publication_date / branch_id is passed as SQL NULL. */
-  const char *params[12];
+  const char *params[13];
   params[0] = book->title;
   params[1] = book->author[0] ? book->author : "";
   params[2] = book->isbn;
@@ -334,9 +353,10 @@ BookCreateStatus book_service_create(Database *db, const BookMutate *book, char 
   params[9] = book->available_copies[0] ? book->available_copies : "1";
   params[10] = book->year[0] ? book->year : "0";
   params[11] = book->branch_id[0] ? book->branch_id : NULL;
+  params[12] = book->google_metadata[0] ? book->google_metadata : "{}";
 
   DbResult result;
-  if (!db_query(db, BOOK_INSERT_SQL, params, 12, &result, errbuf, errlen)) {
+  if (!db_query(db, BOOK_INSERT_SQL, params, 13, &result, errbuf, errlen)) {
     if (db_has_sqlstate(errbuf, DB_SQLSTATE_UNIQUE_VIOLATION)) {
       return BOOK_CREATE_DUPLICATE;
     }
@@ -492,7 +512,7 @@ BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t
   char results[12288] = {0};
 
   for (int i = 0; i < book_count; i++) {
-    char book_json[16384];
+    char book_json[131072];
     int n = json_array_get(json, array_key, i, book_json, sizeof(book_json));
     if (n <= 0) {
       failed++;
@@ -507,6 +527,7 @@ BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t
     char category[512] = {0}, publisher[512] = {0};
     char pub_date[64] = {0}, desc[2048] = {0}, cover[2048] = {0};
     char copies[32] = {0}, avail[32] = {0}, year[16] = {0}, branch[256] = {0};
+    char metadata[BOOK_METADATA_MAX] = {0};
 
     json_string_of_key(book_json, "title", title, sizeof(title));
     json_string_of_key(book_json, "author", author, sizeof(author));
@@ -526,7 +547,10 @@ BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t
     }
     json_string_of_key(book_json, "year", year, sizeof(year));
     json_string_of_key(book_json, "branchId", branch, sizeof(branch));
+    json_string_of_key(book_json, "googleMetadata", metadata, sizeof(metadata));
+    normalize_partial_date(pub_date, sizeof(pub_date));
 
+    snprintf(book.google_metadata, sizeof(book.google_metadata), "%s", metadata);
     snprintf(book.title, sizeof(book.title), "%s", title);
     snprintf(book.author, sizeof(book.author), "%s", author);
     snprintf(book.isbn, sizeof(book.isbn), "%s", isbn);

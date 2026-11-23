@@ -13,6 +13,8 @@
 
 /** Maximum length of any single editable book field. */
 #define BOOK_FIELD_MAX 1024
+/** Full Google Books record, stored as a JSON string. */
+#define BOOK_METADATA_MAX 32768
 
 /**
  * Editable fields used by create/update. Everything stays text so JSON parsing
@@ -33,6 +35,7 @@ typedef struct {
   char total_copies[BOOK_FIELD_MAX];     /* non-negative integer, as text */
   char available_copies[BOOK_FIELD_MAX]; /* non-negative integer, as text */
   char year[BOOK_FIELD_MAX];             /* year (0..3000), as text */
+  char google_metadata[BOOK_METADATA_MAX]; /* JSON object, as text */
 } BookMutate;
 
 typedef enum {
@@ -184,7 +187,7 @@ typedef enum {
 } BookImportStatus;
 
 #define BOOKS_IMPORT_MAX 500
-#define BOOKS_IMPORT_JSON_MAX 1048576
+#define BOOKS_IMPORT_JSON_MAX (16 * 1024 * 1024)
 
 BookImportStatus book_service_import_bulk(Database *db, const char *json, size_t json_len,
                                           char *out, size_t out_size, char *errbuf,
