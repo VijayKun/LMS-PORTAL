@@ -1,0 +1,22 @@
+# Never bake secrets into the build
+backend/.env
+backend/.env.local
+backend/.env.*
+
+# Build output
+backend/build/
+**/*.o
+**/*.obj
+**/*.d
+**/*.exe
+**/*.a
+
+# Tests and docs
+**/tests/
+**/README.md
+
+# Node modules
+node_modules/
+
+# OS noise
+.DS_Store
