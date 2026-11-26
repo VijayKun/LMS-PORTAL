@@ -7,10 +7,12 @@ import { useToast } from '../store/ToastContext.jsx'
 import { Field, Input } from '../components/ui/Field.jsx'
 import BrandLogo from '../components/BrandLogo.jsx'
 
-const DEMO = {
-  identifier: 'vijay.verma@mitsgwl.ac.in',
-  password: 'library123',
-}
+const DEMO_ACCOUNTS = [
+  { role: 'Admin', identifier: 'librarian@mitsgwalior.in', password: 'library123' },
+  { role: 'Student', identifier: 'rohan.iyer@mitsgwl.ac.in', password: 'student123' },
+]
+
+const DEMO = DEMO_ACCOUNTS[1]
 
 const FEATURES = [
   { icon: BookOpen, title: 'Book Management', desc: 'Manage and explore the complete library collection.' },
@@ -48,6 +50,12 @@ export default function LoginPage() {
   if (user) return <Navigate to={user.role === 'admin' ? '/admin' : '/student'} replace />
 
   const detectCaps = (e) => setCapsOn(Boolean(e.getModifierState?.('CapsLock')))
+
+  function fillDemo(account) {
+    setIdentifier(account.identifier)
+    setPassword(account.password)
+    setError('')
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -249,7 +257,22 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <p className="demo-note">Demo mode · credentials are pre-filled.</p>
+            <div className="demo-accounts">
+              <p className="demo-note">Demo accounts — click to fill</p>
+              <div className="domain-hints">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <button
+                    type="button"
+                    key={account.role}
+                    className="domain-chip demo-chip"
+                    onClick={() => fillDemo(account)}
+                  >
+                    <b>{account.role}</b>
+                    <i>{account.identifier}</i>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </main>
       </div>

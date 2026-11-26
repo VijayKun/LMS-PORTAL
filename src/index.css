@@ -1595,6 +1595,11 @@ color: var(--login-strong-text);
 }
 .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .demo-note { margin-top: 14px; text-align: center; font-size: 12px; color: var(--text-muted); }
+.demo-accounts { margin-top: 14px; }
+.demo-accounts .demo-note { margin: 0 0 10px; }
+.demo-accounts .domain-hints { margin-bottom: 0; }
+.demo-chip { cursor: pointer; font: inherit; color: inherit; transition: border-color 0.16s, background 0.16s; }
+.demo-chip:hover { border-color: var(--primary); background: var(--primary-soft); }
 
 .login-alert {
   display: flex;
