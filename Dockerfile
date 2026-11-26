@@ -1,4 +1,3 @@
-# Build stage for LMS Backend
 FROM alpine:latest
 
 RUN apk add --no-cache make gcc musl-dev postgresql-dev openssl-dev linux-headers
