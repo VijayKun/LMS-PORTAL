@@ -11,7 +11,6 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Copy files needed for build
 COPY backend/Makefile ./backend/
 COPY backend/src ./backend/src/
 COPY backend/lib ./backend/lib/
