@@ -1,0 +1,50 @@
+# Render Blueprint for the LMS backend (C + Mongoose + PostgreSQL).
+#
+# Deploy: push this file, then in Render choose "New > Blueprint" and point it
+# at this repo. Render builds backend/Dockerfile and serves /api/health.
+#
+# Values marked `sync: false` are secrets/URLs you must fill in the Render
+# dashboard after the first deploy (they are never committed here).
+
+services:
+  - type: web
+    name: lms-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: LMS_SERVER_HOST
+        value: 0.0.0.0
+
+      # Your deployed frontend origin (e.g. https://lms-portal.vercel.app).
+      # Must be exact - the backend echoes it back for credentialed CORS.
+      - key: LMS_CORS_ALLOWED_ORIGIN
+        sync: false
+
+      # Cross-site cookies (Vercel frontend -> Render backend) need
+      # SameSite=None, which forces the Secure flag.
+      - key: LMS_COOKIE_SAME_SITE
+        value: None
+      - key: LMS_COOKIE_SECURE
+        value: "1"
+
+      # Supabase PostgreSQL connection (Project Settings -> Database).
+      - key: LMS_DB_HOST
+        sync: false
+      - key: LMS_DB_PORT
+        value: "5432"
+      - key: LMS_DB_NAME
+        value: postgres
+      - key: LMS_DB_USER
+        sync: false
+      - key: LMS_DB_PASSWORD
+        sync: false
+      - key: LMS_DB_SSLMODE
+        value: require
+
+      # Optional: Google Books ISBN metadata lookup.
+      - key: LMS_GOOGLE_BOOKS_API_KEY
+        sync: false

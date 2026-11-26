@@ -124,7 +124,18 @@ void config_load(ServerConfig *cfg, const char *env_path) {
   }
 
   snprintf(cfg->host, sizeof(cfg->host), "%s", cfg_get("LMS_SERVER_HOST", "127.0.0.1"));
-  snprintf(cfg->port, sizeof(cfg->port), "%s", cfg_get("LMS_SERVER_PORT", "8080"));
+
+  /* Port precedence: LMS_SERVER_PORT -> PORT (Render/Heroku style) -> 8080.
+   * This lets the same binary run locally and on PaaS platforms. */
+  const char *port = cfg_get("LMS_SERVER_PORT", NULL);
+  if (port == NULL || port[0] == '\0') {
+    port = getenv("PORT");
+  }
+  if (port == NULL || port[0] == '\0') {
+    port = "8080";
+  }
+  snprintf(cfg->port, sizeof(cfg->port), "%s", port);
+
   snprintf(cfg->cors_origin, sizeof(cfg->cors_origin), "%s",
            cfg_get("LMS_CORS_ALLOWED_ORIGIN", "http://localhost:5173"));
 

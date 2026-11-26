@@ -1,0 +1,21 @@
+# Never bake secrets into the image.
+.env
+.env.*
+!.env.example
+
+# Rebuilt inside the image.
+build/
+*.o
+*.obj
+*.d
+*.exe
+*.a
+
+# Not needed at runtime.
+tests/
+README.md
+
+# Editor / OS noise.
+.vscode/
+.idea/
+.DS_Store

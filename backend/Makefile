@@ -1,7 +1,7 @@
 # LMS backend - build system
 #
 # Targets:
-#   make        build the server        -> build/lms_backend.exe
+#   make        build the server        -> build/lms_backend(.exe)
 #   make run    build and run the server
 #   make test   build and run the unit tests
 #   make clean  remove build artifacts
@@ -14,20 +14,36 @@
 #   $env:Path += ";C:\msys64\ucrt64\bin"
 
 CC       ?= gcc
-BIN      := build/lms_backend.exe
+
+# Windows (MSYS2 UCRT64) and Linux (Docker/Render) differ only in the binary
+# name and the system libraries we link. Everything else is shared.
+ifeq ($(OS),Windows_NT)
+  BIN       := build/lms_backend.exe
+  PQ_DIR    ?= C:/msys64/ucrt64
+  SYS_LIBS  := -lpq -lcrypto -lws2_32 -lwinhttp
+else
+  BIN       := build/lms_backend
+  PQ_DIR    ?=
+  SYS_LIBS  := -lpq -lcrypto -pthread
+  # glibc hides POSIX declarations under strict -std=c11; re-expose them.
+  CPPFLAGS  += -D_DEFAULT_SOURCE
+endif
 
 SRCDIR := src
 LIBDIR := lib
 
-# libpq (PostgreSQL client) from the MSYS2 UCRT64 prefix. Override if needed:
-#   make PQ_DIR=/c/other/prefix
-PQ_DIR ?= C:/msys64/ucrt64
+# libpq (PostgreSQL client) prefix. On Windows this is the MSYS2 UCRT64 tree;
+# on Linux libpq lives in the default system paths, so PQ_DIR stays empty.
+# Override on Windows if needed: make PQ_DIR=/c/other/prefix
+ifneq ($(PQ_DIR),)
+  CPPFLAGS += -I$(PQ_DIR)/include
+  LDFLAGS  += -L$(PQ_DIR)/lib
+endif
 
-CPPFLAGS += -I$(SRCDIR) -I$(LIBDIR) -I$(PQ_DIR)/include
+CPPFLAGS += -I$(SRCDIR) -I$(LIBDIR)
 CFLAGS   ?= -std=c11 -Wall -Wextra -O2 -g
 CFLAGS   += -MMD -MP
-LDFLAGS  += -L$(PQ_DIR)/lib
-             LDLIBS   += -lpq -lcrypto -lws2_32 -lwinhttp
+LDLIBS   += $(SYS_LIBS)
 
 SRCS := \
   $(SRCDIR)/main.c \
