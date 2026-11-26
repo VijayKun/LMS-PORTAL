@@ -1,10 +1,10 @@
-FROM alpine:latest
-
-RUN apk add --no-cache make gcc musl-dev postgresql-dev openssl-dev linux-headers
+FROM gcc:latest
 
 WORKDIR /app
 
 COPY . .
+
+RUN apt-get update && apt-get install -y libpq-dev libssl-dev
 
 RUN cd backend && make
 
