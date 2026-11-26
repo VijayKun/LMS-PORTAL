@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY backend/Makefile backend/
-COPY backend/src backend/src
-COPY backend/lib backend/lib
+COPY backend/src backend/
+COPY backend/lib backend/
 
 RUN cd backend && make
 
