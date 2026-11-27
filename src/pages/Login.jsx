@@ -9,7 +9,7 @@ import BrandLogo from '../components/BrandLogo.jsx'
 
 const DEMO_ACCOUNTS = [
   { role: 'Admin', identifier: 'librarian@mitsgwalior.in', password: 'library123' },
-  { role: 'Student', identifier: 'rohan.iyer@mitsgwl.ac.in', password: 'student123' },
+  { role: 'Student', identifier: 'virash@mitsgwl.ac.in', password: 'student123' },
 ]
 
 const DEMO = DEMO_ACCOUNTS[1]

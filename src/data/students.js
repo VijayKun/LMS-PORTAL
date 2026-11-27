@@ -21,8 +21,8 @@ export const mockStudents = [
   },
   {
     id: 'st2',
-    name: 'Rohan Iyer',
-    email: 'rohan.iyer@mitsgwl.ac.in',
+    name: 'Virash',
+    email: 'virash@mitsgwl.ac.in',
     studentId: '2024EC1018',
     branch: 'Electronics & Communication',
     program: 'B.Tech',

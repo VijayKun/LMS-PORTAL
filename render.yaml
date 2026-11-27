@@ -1,12 +1,12 @@
 services:
   - type: web
     name: lms-backend
-    env: docker
-    dockerfilePath: Dockerfile
-    healthCheckPath: /api/health
-    autoDeploy: true
-    buildCommand: ""
-    startCommand: "/app/lms_backend"
+    env: shell
+    buildCommand: |
+      apt-get update && apt-get install -y build-essential libpq-dev libssl-dev
+      cd backend && make
+    startCommand: ./backend/build/lms_backend
+    publishProcess: false
     envVars:
       - key: LMS_SERVER_HOST
         value: "0.0.0.0"
