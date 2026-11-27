@@ -13,7 +13,7 @@
 
 /** Issue/return policy tuning. Adjust here (per the LMS fair-use policy). */
 #define LOAN_DEFAULT_PERIOD_DAYS 14  /* due date = issue date + this */
-#define FINE_PER_DAY 10.0            /* rupees per overdue day */
+#define FINE_PER_DAY 5.0             /* rupees per overdue day */
 
 /**
  * Fields accepted when issuing a book. `due_date` is optional: when empty the

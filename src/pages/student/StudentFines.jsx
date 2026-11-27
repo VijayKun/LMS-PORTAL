@@ -15,6 +15,7 @@ import {
   isOverdue,
 } from '../../utils/selectors.js'
 import { formatDate } from '../../utils/format.js'
+import { FINE_PER_DAY_LABEL } from '../../data/constants.js'
 
 export default function StudentFines() {
   usePageTitle('Fines')
@@ -40,7 +41,7 @@ export default function StudentFines() {
         <div>
           <h1>Fines</h1>
           <p className="page-sub">
-            Late returns are charged at ₹10 per day. Pay at the library counter.
+            Late returns are charged at {FINE_PER_DAY_LABEL}. Pay at the library counter.
           </p>
         </div>
       </div>

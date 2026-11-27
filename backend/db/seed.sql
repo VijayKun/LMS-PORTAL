@@ -19,7 +19,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.students
   (id, name, email, student_id, branch, program, semester, contact, joined_date, status, password_hash) VALUES
   ('st1', 'Vijay Verma', 'vijay.verma@mitsgwl.ac.in', 'BTCS2601146', 'Computer Science', 'B.Tech', 5, '+91 98401 22114', '2025-07-15', 'active', 'scrypt$16384$8$1$eb95463da38c408141f927a66f6f9952$f6cf341d2917580ca97a9e02879ba8628dbd93fee58581e0bdc3b255bea1e752'),
-  ('st2', 'Rohan Iyer', 'rohan.iyer@mitsgwl.ac.in', '2024EC1018', 'Electronics & Communication', 'B.Tech', 7, '+91 98401 33425', '2024-07-12', 'active', 'scrypt$16384$8$1$ee8c9ffedece9c00ec4ee0d8e160c496$9c9f7390dc52620754a7815992f41a11ef53d9efebf72eb79fc066da31a2f0fa'),
+  ('st2', 'Virash', 'virash@mitsgwl.ac.in', '2024EC1018', 'Electronics & Communication', 'B.Tech', 7, '+91 98401 33425', '2024-07-12', 'active', 'scrypt$16384$8$1$ee8c9ffedece9c00ec4ee0d8e160c496$9c9f7390dc52620754a7815992f41a11ef53d9efebf72eb79fc066da31a2f0fa'),
   ('st3', 'Meera Krishnan', 'meera.krishnan@mitsgwl.ac.in', '2025CS1057', 'Computer Science', 'B.Tech', 5, '+91 98401 44119', '2025-07-15', 'active', 'scrypt$16384$8$1$ee8c9ffedece9c00ec4ee0d8e160c496$9c9f7390dc52620754a7815992f41a11ef53d9efebf72eb79fc066da31a2f0fa'),
   ('st4', 'Arjun Nair', 'arjun.nair@mitsgwl.ac.in', '2024MG2011', 'Management Studies', 'MBA', 3, '+91 98401 55336', '2024-08-01', 'active', 'scrypt$16384$8$1$ee8c9ffedece9c00ec4ee0d8e160c496$9c9f7390dc52620754a7815992f41a11ef53d9efebf72eb79fc066da31a2f0fa'),
   ('st5', 'Sneha Patil', 'sneha.patil@mitsgwl.ac.in', '2025CS1063', 'Computer Science', 'B.Tech', 5, '+91 98401 66547', '2025-07-15', 'active', 'scrypt$16384$8$1$ee8c9ffedece9c00ec4ee0d8e160c496$9c9f7390dc52620754a7815992f41a11ef53d9efebf72eb79fc066da31a2f0fa'),
@@ -118,20 +118,20 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.fines
   (id, student_id, book_id, due_date, return_date, overdue_days, amount, status, paid_date) VALUES
-  ('fn1', 'st1', 'bk12', '2026-09-01', '2026-09-03', 2, 20, 'paid', '2026-09-05'),
-  ('fn2', 'st1', 'bk14', '2026-10-04', '2026-10-07', 3, 30, 'pending', NULL),
-  ('fn3', 'st9', 'bk2', '2026-09-03', '2026-09-10', 7, 70, 'paid', '2026-09-12'),
-  ('fn4', 'st13', 'bk28', '2026-08-31', '2026-09-02', 2, 20, 'paid', '2026-09-04'),
-  ('fn5', 'st5', 'bk27', '2026-09-29', '2026-09-30', 1, 10, 'pending', NULL),
-  ('fn6', 'st2', 'bk4', '2026-08-28', '2026-09-01', 4, 40, 'paid', '2026-09-03'),
-  ('fn7', 'st15', 'bk8', '2026-09-20', '2026-09-25', 5, 50, 'pending', NULL)
+  ('fn1', 'st1', 'bk12', '2026-09-01', '2026-09-03', 2, 10, 'paid', '2026-09-05'),
+  ('fn2', 'st1', 'bk14', '2026-10-04', '2026-10-09', 5, 25, 'pending', NULL),
+  ('fn3', 'st9', 'bk2', '2026-09-03', '2026-09-10', 7, 35, 'paid', '2026-09-12'),
+  ('fn4', 'st13', 'bk28', '2026-08-31', '2026-09-02', 2, 10, 'paid', '2026-09-04'),
+  ('fn5', 'st5', 'bk27', '2026-09-29', '2026-09-30', 1, 5, 'pending', NULL),
+  ('fn6', 'st2', 'bk4', '2026-08-28', '2026-09-01', 4, 20, 'paid', '2026-09-03'),
+  ('fn7', 'st15', 'bk8', '2026-09-20', '2026-09-25', 5, 25, 'pending', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.notifications
   (id, type, title, message, time, read, user_id) VALUES
   ('nt1', 'due', 'Due date reminder', '"The Psychology of Money" is due on 10 Oct 2026. Please return it on time to avoid a fine.', '2026-10-07T09:15:00', false, 'st1'),
   ('nt2', 'reservation', 'Reservation ready for pickup', '"Artificial Intelligence: A Modern Approach" is ready for pickup at the Engineering Library until 09 Oct.', '2026-10-06T14:30:00', false, 'st1'),
-  ('nt3', 'fine', 'Fine of ₹30 pending', 'A fine of ₹30 was recorded for "Don''t Make Me Think" (3 days overdue). Please clear it at the library counter.', '2026-10-07T08:05:00', false, 'st1'),
+  ('nt3', 'fine', 'Fine of ₹25 pending', 'A fine of ₹25 was recorded for "Don''t Make Me Think" (5 days overdue). Please clear it at the library counter.', '2026-10-07T08:05:00', false, 'st1'),
   ('nt4', 'due', 'Due date reminder', '"Clean Code" is due on 12 Oct 2026.', '2026-10-06T10:00:00', true, 'st1'),
   ('nt5', 'announcement', 'Library closed on 18 October', 'The Main Library will be closed on 18 Oct 2026 for annual inventory. Please plan your borrows accordingly.', '2026-10-04T16:45:00', true, 'all'),
   ('nt6', 'reservation', 'Reservation expired', 'Your reservation for "Computer Networking: A Top-Down Approach" expired on 25 Sep. You can reserve it again.', '2026-09-25T11:00:00', true, 'st1'),

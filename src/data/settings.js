@@ -17,7 +17,7 @@ export const defaultSettings = {
   /* Legacy flat flags kept for compatibility with older saved states. */
   institutionName: INSTITUTION_NAME,
   loanPeriodDays: 14,
-  finePerDay: 10,
+  finePerDay: 5,
   maxBooksPerStudent: 4,
   reservationHoldDays: 3,
   emailReminders: true,

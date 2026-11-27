@@ -27,8 +27,8 @@ export const mockNotifications = [
   {
     id: 'nt3',
     type: 'fine',
-    title: 'Fine of ₹30 pending',
-    message: 'A fine of ₹30 was recorded for "Don\'t Make Me Think" (3 days overdue). Please clear it at the library counter.',
+    title: 'Fine of ₹25 pending',
+    message: 'A fine of ₹25 was recorded for "Don\'t Make Me Think" (5 days overdue). Please clear it at the library counter.',
     time: '2026-10-07T08:05:00',
     read: false,
     userId: 'st1',

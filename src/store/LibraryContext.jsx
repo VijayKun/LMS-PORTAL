@@ -37,7 +37,7 @@ const STORAGE_KEY = 'lms.data.v1'
 /* Bump DATA_VERSION whenever saved mock data needs reshaping; existing
    browsers are migrated once inside migrateState() before first render. */
 const DATA_VERSION_KEY = 'lms.data.version'
-const DATA_VERSION = 2
+const DATA_VERSION = 4
 
 const ACADEMIC_BRANCHES = [
   { id: 'cs', name: 'Computer Science & Engineering' },
@@ -78,7 +78,9 @@ function migrateState(state) {
     settings: {
       ...state.settings,
       institutionName: INSTITUTION_NAME,
+      finePerDay: FINE_PER_DAY,
       library: { ...state.settings?.library, name: INSTITUTION_NAME },
+      circulation: { ...state.settings?.circulation, finePerDay: FINE_PER_DAY },
     },
   }
 
@@ -92,6 +94,25 @@ function migrateState(state) {
           return branch ? { ...book, branchId: branch } : book
         })
       : next.books
+  }
+
+  if (Array.isArray(next.fines)) {
+    next.fines = next.fines.map((fine) => {
+      const overdueDays = Number(fine?.overdueDays) || 0
+      return { ...fine, amount: overdueDays * FINE_PER_DAY }
+    })
+  }
+
+  if (Array.isArray(next.notifications)) {
+    next.notifications = next.notifications.map((notification) =>
+      notification?.id === 'nt3'
+        ? {
+            ...notification,
+            title: `Fine of ₹${FINE_PER_DAY * 5} pending`,
+            message: `A fine of ₹${FINE_PER_DAY * 5} was recorded for "Don't Make Me Think" (5 days overdue). Please clear it at the library counter.`,
+          }
+        : notification,
+    )
   }
 
   try {
